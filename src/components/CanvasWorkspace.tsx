@@ -1,0 +1,293 @@
+import React, { useRef, useState } from 'react';
+import type { CanvasState, CodeNode, NodeConnection } from '../types';
+import { NodeCard } from './NodeCard';
+
+interface CanvasWorkspaceProps {
+  nodes: CodeNode[];
+  connections: NodeConnection[];
+  selectedNodeId: string | null;
+  onSelectNode: (id: string | null) => void;
+  onNodeDrag: (id: string, x: number, y: number) => void;
+  onConnectEnd: (fromId: string, toId: string) => void;
+  canvasState: CanvasState;
+  setCanvasState: React.Dispatch<React.SetStateAction<CanvasState>>;
+}
+
+export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
+  nodes,
+  connections,
+  selectedNodeId,
+  onSelectNode,
+  onNodeDrag,
+  onConnectEnd,
+  canvasState,
+  setCanvasState
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const [connectFromId, setConnectFromId] = useState<string | null>(null);
+  const [connectTargetId, setConnectTargetId] = useState<string | null>(null);
+  const [tempLineEnd, setTempLineEnd] = useState({ x: 0, y: 0 });
+
+  const { panX, panY, scale } = canvasState;
+
+  // Node Dimensions matching index.css styles
+  const CARD_WIDTH = 220;
+  const CARD_HEIGHT = 80;
+
+  // Convert mouse screen coordinates to canvas coordinate space
+  const screenToCanvasCoords = (clientX: number, clientY: number) => {
+    if (!containerRef.current) return { x: 0, y: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - panX) / scale,
+      y: (clientY - rect.top - panY) / scale
+    };
+  };
+
+  // 1. Zoom Wheel Handler
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (!containerRef.current) return;
+
+    const zoomFactor = 1.08;
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Center zoom on mouse position
+    const canvasMouseX = (mouseX - panX) / scale;
+    const canvasMouseY = (mouseY - panY) / scale;
+
+    let newScale = scale;
+    if (e.deltaY < 0) {
+      newScale = Math.min(scale * zoomFactor, 3.0); // max scale 300%
+    } else {
+      newScale = Math.max(scale / zoomFactor, 0.15); // min scale 15%
+    }
+
+    setCanvasState({
+      scale: newScale,
+      panX: mouseX - canvasMouseX * newScale,
+      panY: mouseY - canvasMouseY * newScale
+    });
+  };
+
+  // 2. Mouse Down Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // If clicking on anchor, do not start pan
+    if ((e.target as HTMLElement).classList.contains('card-anchor')) return;
+    
+    // Clear selection if clicking background
+    if ((e.target as HTMLElement).classList.contains('canvas-workspace-inner') || 
+        (e.target as HTMLElement).classList.contains('grid-bg-container')) {
+      onSelectNode(null);
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
+    }
+  };
+
+  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    onSelectNode(nodeId);
+    
+    // Don't drag if anchor click
+    if ((e.target as HTMLElement).classList.contains('card-anchor')) return;
+
+    const targetNode = nodes.find(n => n.id === nodeId);
+    if (!targetNode) return;
+
+    setDragNodeId(nodeId);
+    setDragStart({
+      x: e.clientX - targetNode.x * scale,
+      y: e.clientY - targetNode.y * scale
+    });
+  };
+
+  const handleConnectStart = (e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setConnectFromId(nodeId);
+    
+    const sourceNode = nodes.find(n => n.id === nodeId);
+    if (sourceNode) {
+      // Anchors are on the right side center of card
+      setTempLineEnd({
+        x: sourceNode.x + CARD_WIDTH,
+        y: sourceNode.y + CARD_HEIGHT / 2
+      });
+    }
+  };
+
+  // 3. Mouse Move Handler
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Canvas Pan loop
+    if (isPanning) {
+      setCanvasState(prev => ({
+        ...prev,
+        panX: e.clientX - panStart.x,
+        panY: e.clientY - panStart.y
+      }));
+      return;
+    }
+
+    // Card Drag loop
+    if (dragNodeId) {
+      const nodeX = (e.clientX - dragStart.x) / scale;
+      const nodeY = (e.clientY - dragStart.y) / scale;
+      onNodeDrag(dragNodeId, Math.round(nodeX), Math.round(nodeY));
+      return;
+    }
+
+    // Connect line draw loop
+    if (connectFromId) {
+      const canvasCoords = screenToCanvasCoords(e.clientX, e.clientY);
+      setTempLineEnd(canvasCoords);
+      
+      // Highlight hover card target
+      const target = (e.target as HTMLElement).closest('.node-card');
+      if (target) {
+        // Get node id by comparing coordinates or data attributes
+        const rect = target.getBoundingClientRect();
+        const canvasCardCoords = screenToCanvasCoords(rect.left, rect.top);
+        
+        // Find which node is at this coordinate
+        const hoveredNode = nodes.find(
+          n => Math.abs(n.x - canvasCardCoords.x) < 5 && Math.abs(n.y - canvasCardCoords.y) < 5
+        );
+        if (hoveredNode && hoveredNode.id !== connectFromId) {
+          setConnectTargetId(hoveredNode.id);
+        }
+      } else {
+        setConnectTargetId(null);
+      }
+    }
+  };
+
+  // 4. Mouse Up Handler
+  const handleMouseUp = () => {
+    setIsPanning(false);
+    setDragNodeId(null);
+
+    // Create Connection Link
+    if (connectFromId && connectTargetId) {
+      onConnectEnd(connectFromId, connectTargetId);
+    }
+    
+    setConnectFromId(null);
+    setConnectTargetId(null);
+  };
+
+  // SVG Paths Drawer Helper
+  const drawConnectionPath = (fromNode: CodeNode, toNode: CodeNode) => {
+    const startX = fromNode.x + CARD_WIDTH;
+    const startY = fromNode.y + CARD_HEIGHT / 2;
+    const endX = toNode.x;
+    const endY = toNode.y + CARD_HEIGHT / 2;
+
+    // Nice cubic bezier curves mapping
+    const controlOffset = Math.max(Math.abs(endX - startX) * 0.4, 40);
+    return `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${endX - controlOffset} ${endY}, ${endX} ${endY}`;
+  };
+
+  const drawTempConnectionPath = () => {
+    if (!connectFromId) return '';
+    const source = nodes.find(n => n.id === connectFromId);
+    if (!source) return '';
+    const startX = source.x + CARD_WIDTH;
+    const startY = source.y + CARD_HEIGHT / 2;
+    const controlOffset = Math.max(Math.abs(tempLineEnd.x - startX) * 0.4, 40);
+    return `M ${startX} ${startY} C ${startX + controlOffset} ${startY}, ${tempLineEnd.x - controlOffset} ${tempLineEnd.y}, ${tempLineEnd.x} ${tempLineEnd.y}`;
+  };
+
+  const canvasStyle = {
+    transform: `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`,
+    transformOrigin: '0 0'
+  };
+
+  return (
+    <div 
+      className="canvas-viewport" 
+      ref={containerRef}
+      onWheel={handleWheel}
+      onMouseMove={handleMouseMove}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      <div className="canvas-workspace-inner" style={canvasStyle}>
+        
+        {/* Infinite Grid Dots Pattern */}
+        <div className="grid-bg-container"></div>
+
+        {/* Vector Connections SVG Layout */}
+        <svg className="connections-svg-layer">
+          <defs>
+            <marker
+              id="arrow"
+              viewBox="0 0 10 10"
+              refX="6"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--accent-purple)" />
+            </marker>
+          </defs>
+
+          {/* Render permanent links */}
+          {connections.map(conn => {
+            const fromNode = nodes.find(n => n.id === conn.fromNodeId);
+            const toNode = nodes.find(n => n.id === conn.toNodeId);
+            if (!fromNode || !toNode) return null;
+
+            return (
+              <g key={conn.id}>
+                <path
+                  d={drawConnectionPath(fromNode, toNode)}
+                  className="connection-line"
+                  markerEnd="url(#arrow)"
+                />
+              </g>
+            );
+          })}
+
+          {/* Render active dragging linking line */}
+          {connectFromId && (
+            <path
+              d={drawTempConnectionPath()}
+              className="connection-line temp-line"
+              markerEnd="url(#arrow)"
+            />
+          )}
+        </svg>
+
+        {/* Render Card Nodes List */}
+        {nodes.map(node => (
+          <NodeCard
+            key={node.id}
+            node={node}
+            isSelected={node.id === selectedNodeId}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectNode(node.id);
+            }}
+            onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+            onConnectStart={handleConnectStart}
+          />
+        ))}
+
+      </div>
+
+      <div className="workspace-instructions">
+        🖱️ Left-Click + Drag Background to Pan • ⚙️ Scroll to Zoom • 🔀 Drag anchor dots to link files
+      </div>
+    </div>
+  );
+};
