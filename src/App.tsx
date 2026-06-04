@@ -376,6 +376,10 @@ export default function App() {
     setNodes(updated);
   };
 
+  const handleNodeDragEnd = () => {
+    saveState(nodes, connections);
+  };
+
   // 6. Component Property Editing
   const handleChangeNode = (id: string, updatedFields: Partial<CodeNode>) => {
     const updated = nodes.map(n => {
@@ -804,6 +808,7 @@ export default function App() {
         selectedNodeId={selectedNodeId}
         onSelectNode={handleSelectNode}
         onNodeDrag={handleNodeDrag}
+        onNodeDragEnd={handleNodeDragEnd}
         onConnectEnd={handleConnectEnd}
         canvasState={canvasState}
         setCanvasState={handleUpdateCanvasState}

@@ -8,6 +8,7 @@ interface CanvasWorkspaceProps {
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
   onNodeDrag: (id: string, x: number, y: number) => void;
+  onNodeDragEnd?: () => void;
   onConnectEnd: (fromId: string, toId: string) => void;
   canvasState: CanvasState;
   setCanvasState: React.Dispatch<React.SetStateAction<CanvasState>>;
@@ -19,6 +20,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   selectedNodeId,
   onSelectNode,
   onNodeDrag,
+  onNodeDragEnd,
   onConnectEnd,
   canvasState,
   setCanvasState
@@ -182,6 +184,10 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   // 4. Mouse Up Handler
   const handleMouseUp = () => {
     setIsPanning(false);
+    
+    if (dragNodeId && onNodeDragEnd) {
+      onNodeDragEnd();
+    }
     setDragNodeId(null);
 
     // Create Connection Link
