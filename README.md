@@ -56,7 +56,10 @@ graph TD
   node_card --> node_types
   node_details --> node_types
 ```
-
+<a href="https://github.com/x2dat/ArchCanvas">
+    <img src="https://img.shields.io/badge/Generated\_with-ArchCanvas-8b5cf6?style=for-the-badge" alt="Generated with ArchCanvas" />
+  </a>
+</p>
 ---
 
 ## 💻 Tech Stack & Design
