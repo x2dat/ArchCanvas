@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Layers, Home } from 'lucide-react';
 import { Toolbar } from './components/Toolbar';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { DetailsPanel } from './components/DetailsPanel';
+import { FileExplorer } from './components/FileExplorer';
 import { AuthScreen } from './components/AuthScreen';
 import { Dashboard } from './components/Dashboard';
 import { storageService } from './services/storage';
-import type { User } from './services/storage';
+import type { User, Project } from './services/storage';
 import type { CodeNode, NodeConnection, CanvasState, LayerType } from './types';
 import './App.css';
 
@@ -19,20 +19,45 @@ const DEFAULT_CANVAS_STATE: CanvasState = {
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [nodes, setNodes] = useState<CodeNode[]>([]);
   const [connections, setConnections] = useState<NodeConnection[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [canvasState, setCanvasState] = useState<CanvasState>(DEFAULT_CANVAS_STATE);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [importWarning, setImportWarning] = useState<string | null>(null);
   const [historyBackup, setHistoryBackup] = useState<{ nodes: CodeNode[], connections: NodeConnection[] } | null>(null);
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
     if (id) {
-      setIsSidebarOpen(true);
+      setIsRightSidebarOpen(true);
     }
+  };
+
+  const handleCenterOnNode = (nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    setSelectedNodeId(nodeId);
+    setIsRightSidebarOpen(true);
+
+    let centerX = window.innerWidth / 2;
+    if (isLeftSidebarOpen) centerX += 140; // Shift right by half of explorer width (280/2)
+    if (isRightSidebarOpen) centerX -= 160; // Shift left by half of details width (320/2)
+
+    const centerY = window.innerHeight / 2;
+
+    const nextPanX = centerX - (node.x + 110) * canvasState.scale;
+    const nextPanY = centerY - (node.y + 40) * canvasState.scale;
+
+    setCanvasState(prev => ({
+      ...prev,
+      panX: nextPanX,
+      panY: nextPanY
+    }));
   };
 
   // Load user session on mount
@@ -53,6 +78,7 @@ export default function App() {
       setConnections([]);
       setCanvasState(DEFAULT_CANVAS_STATE);
       setSelectedNodeId(null);
+      setActiveProject(null);
       return;
     }
     const loadProject = async () => {
@@ -62,9 +88,20 @@ export default function App() {
         setConnections(data.connections);
         setCanvasState(data.canvasState);
       }
+
+      // Load project details
+      if (currentUser) {
+        try {
+          const list = await storageService.getProjects(currentUser.id);
+          const p = list.find(proj => proj.id === activeProjectId);
+          if (p) setActiveProject(p);
+        } catch (err) {
+          console.error("Failed to load project details", err);
+        }
+      }
     };
     loadProject();
-  }, [activeProjectId]);
+  }, [activeProjectId, currentUser]);
 
   const handleUpdateCanvasState = (updater: CanvasState | ((prev: CanvasState) => CanvasState)) => {
     setCanvasState(prev => {
@@ -735,17 +772,25 @@ export default function App() {
   }
 
   return (
-    <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-      {/* Back to Dashboard Floating Button */}
-      <button 
-        type="button"
-        className="back-dashboard-btn glass-plate animate-fade-in" 
-        onClick={handleExitProject}
-        title="Return to Projects Dashboard"
-      >
-        <Home size={14} />
-        <span>Dashboard</span>
-      </button>
+    <div className="workspace-layout">
+      <Toolbar 
+        projectName={activeProject?.name || 'Loading Map...'}
+        projectDescription={activeProject?.description || ''}
+        onImportGitHub={handleImportGitHub}
+        onImportLocalDirectory={handleImportLocalDirectory}
+        onAutoLayout={handleAutoLayout}
+        onAutoLink={handleAutoLinkDependencies}
+        onZoomIn={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
+        onZoomOut={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
+        onZoomReset={() => handleUpdateCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
+        onExitProject={handleExitProject}
+        scale={canvasState.scale}
+        isLoading={isLoading}
+        isLeftOpen={isLeftSidebarOpen}
+        isRightOpen={isRightSidebarOpen}
+        onToggleLeft={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
+        onToggleRight={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+      />
 
       {importWarning && (
         <div className="import-warning-banner glass-plate" style={{
@@ -788,83 +833,101 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating Toolbar Controls */}
-      <Toolbar 
-        onImportGitHub={handleImportGitHub}
-        onImportLocalDirectory={handleImportLocalDirectory}
-        onAutoLayout={handleAutoLayout}
-        onAutoLink={handleAutoLinkDependencies}
-        onZoomIn={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
-        onZoomOut={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
-        onZoomReset={() => handleUpdateCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
-        scale={canvasState.scale}
-        isLoading={isLoading}
-      />
+      <div className="workspace-body">
+        {/* Left Side File Explorer */}
+        <div className={`workspace-sidebar-wrapper left-sidebar ${isLeftSidebarOpen ? 'open' : 'collapsed'}`}>
+          <FileExplorer 
+            nodes={nodes}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={handleSelectNode}
+            onCenterOnNode={handleCenterOnNode}
+            onClose={() => setIsLeftSidebarOpen(false)}
+          />
+        </div>
 
-      {/* Main Drag-Pan Canvas Port */}
-      <CanvasWorkspace 
-        nodes={nodes}
-        connections={connections}
-        selectedNodeId={selectedNodeId}
-        onSelectNode={handleSelectNode}
-        onNodeDrag={handleNodeDrag}
-        onNodeDragEnd={handleNodeDragEnd}
-        onConnectEnd={handleConnectEnd}
-        canvasState={canvasState}
-        setCanvasState={handleUpdateCanvasState}
-      />
+        {/* Central Canvas Workspace */}
+        <main className="canvas-viewport-container">
+          <CanvasWorkspace 
+            nodes={nodes}
+            connections={connections}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={handleSelectNode}
+            onNodeDrag={handleNodeDrag}
+            onNodeDragEnd={handleNodeDragEnd}
+            onConnectEnd={handleConnectEnd}
+            canvasState={canvasState}
+            setCanvasState={handleUpdateCanvasState}
+          />
+        </main>
 
-      {/* Floating Toggle Button on the side */}
-      {!isSidebarOpen && (
-        <button 
-          className="sidebar-trigger-btn glass-plate" 
-          onClick={() => setIsSidebarOpen(true)}
-          title="Open Project Overview"
-        >
-          <Layers size={14} />
-          <span>Project Overview</span>
-        </button>
-      )}
-
-      {/* Side Details Panel */}
-      <div className={`details-sidebar-container ${isSidebarOpen ? '' : 'collapsed'}`}>
-        <DetailsPanel 
-          selectedNode={nodes.find(n => n.id === selectedNodeId) || null}
-          connections={connections}
-          nodes={nodes}
-          onChangeNode={handleChangeNode}
-          onDeleteConnection={handleDeleteConnection}
-          onExportMarkdown={handleExportMarkdown}
-          onClose={() => setIsSidebarOpen(false)}
-          isLoading={isLoading}
-          onImportJson={(newNodes, newConns) => {
-            saveState(newNodes, newConns);
-            handleUpdateCanvasState(DEFAULT_CANVAS_STATE);
-            setSelectedNodeId(null);
-            setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
-          }}
-          onClearAllConnections={() => {
-            if (window.confirm('Delete all connection lines? This cannot be undone.')) {
-              saveState(nodes, []);
-            }
-          }}
-          onClearAllLayers={() => {
-            if (window.confirm('Reset all nodes to general layer type?')) {
-              const updated = nodes.map(n => ({ ...n, layer: 'none' as const }));
-              saveState(updated, connections);
-            }
-          }}
-          onAutoClassifyAllLayers={() => {
-            if (window.confirm('Scan file paths and re-classify architectural layers? This will override custom layers.')) {
-              const updated = nodes.map(n => ({ ...n, layer: classifyLayer(n.path) }));
-              saveState(updated, connections);
-            }
-          }}
-          onClearCanvas={handleClearCanvas}
-          onUndo={handleUndoAutoLink}
-          canUndo={!!historyBackup}
-        />
+        {/* Right Side Properties Panel */}
+        <div className={`workspace-sidebar-wrapper right-sidebar ${isRightSidebarOpen ? 'open' : 'collapsed'}`}>
+          <DetailsPanel 
+            selectedNode={nodes.find(n => n.id === selectedNodeId) || null}
+            connections={connections}
+            nodes={nodes}
+            onChangeNode={handleChangeNode}
+            onDeleteConnection={handleDeleteConnection}
+            onExportMarkdown={handleExportMarkdown}
+            onClose={() => setIsRightSidebarOpen(false)}
+            isLoading={isLoading}
+            onImportJson={(newNodes, newConns) => {
+              saveState(newNodes, newConns);
+              handleUpdateCanvasState(DEFAULT_CANVAS_STATE);
+              setSelectedNodeId(null);
+              setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
+            }}
+            onClearAllConnections={() => {
+              if (window.confirm('Delete all connection lines? This cannot be undone.')) {
+                saveState(nodes, []);
+              }
+            }}
+            onClearAllLayers={() => {
+              if (window.confirm('Reset all nodes to general layer type?')) {
+                const updated = nodes.map(n => ({ ...n, layer: 'none' as const }));
+                saveState(updated, connections);
+              }
+            }}
+            onAutoClassifyAllLayers={() => {
+              if (window.confirm('Scan file paths and re-classify architectural layers? This will override custom layers.')) {
+                const updated = nodes.map(n => ({ ...n, layer: classifyLayer(n.path) }));
+                saveState(updated, connections);
+              }
+            }}
+            onClearCanvas={handleClearCanvas}
+            onUndo={handleUndoAutoLink}
+            canUndo={!!historyBackup}
+          />
+        </div>
       </div>
+
+      {/* Bottom Status Bar */}
+      <footer className="workspace-status-bar">
+        <div className="status-left-metrics">
+          <span className="status-metric-item">
+            <strong>{nodes.filter(n => n.type === 'directory').length}</strong> Folders
+          </span>
+          <span className="status-separator">•</span>
+          <span className="status-metric-item">
+            <strong>{nodes.filter(n => n.type === 'file').length}</strong> Files
+          </span>
+          <span className="status-separator">•</span>
+          <span className="status-metric-item">
+            <strong>{connections.length}</strong> Links
+          </span>
+        </div>
+
+        <div className="status-center-help">
+          <span>💡 Tip: Double-click nodes or drag right handle anchor to draw dependencies</span>
+        </div>
+
+        <div className="status-right-sync">
+          <div className="sync-badge synced">
+            <span className="pulse-dot"></span>
+            <span>CLOUD SYNCED</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

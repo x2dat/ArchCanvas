@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { 
   FolderPlus, 
-  Trash2, 
   Maximize2, 
   ZoomIn, 
   ZoomOut, 
   Sparkles,
   Loader,
-  Link2
+  Link2,
+  Home,
+  Layers,
+  FileText
 } from 'lucide-react';
 
 const Github: React.FC<{ size?: number; className?: string }> = ({ size = 16, className }) => (
@@ -27,6 +29,8 @@ const Github: React.FC<{ size?: number; className?: string }> = ({ size = 16, cl
 );
 
 interface ToolbarProps {
+  projectName: string;
+  projectDescription: string;
   onImportGitHub: (url: string) => void;
   onImportLocalDirectory: () => void;
   onAutoLayout: () => void;
@@ -34,11 +38,18 @@ interface ToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  onExitProject: () => void;
   scale: number;
   isLoading: boolean;
+  isLeftOpen: boolean;
+  isRightOpen: boolean;
+  onToggleLeft: () => void;
+  onToggleRight: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
+  projectName,
+  projectDescription,
   onImportGitHub,
   onImportLocalDirectory,
   onAutoLayout,
@@ -46,14 +57,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  onExitProject,
   scale,
-  isLoading
+  isLoading,
+  isLeftOpen,
+  isRightOpen,
+  onToggleLeft,
+  onToggleRight
 }) => {
   const [githubUrl, setGithubUrl] = useState('');
-
-  const handleClearClick = () => {
-    alert("To delete connections, clear layers, or manage your workspace map, please open the 'Project Overview' panel (bottom-right button) and use the 'Developer Toolkit' menu.");
-  };
 
   const handleGitHubSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,89 +77,119 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const isLocalPickerSupported = 'showDirectoryPicker' in window;
 
   return (
-    <div className="toolbar-panel glass-plate">
-      <div className="toolbar-logo">
-        <div className="logo-glow">C</div>
-        <h1>ArchCanvas</h1>
+    <header className="workspace-header glass-plate">
+      {/* Left side: Back + Project Info */}
+      <div className="header-left-group">
+        <button 
+          type="button" 
+          className="header-back-btn" 
+          onClick={onExitProject}
+          title="Save and exit to Dashboard"
+        >
+          <Home size={14} />
+          <span>Dashboard</span>
+        </button>
+        
+        <div className="header-divider"></div>
+        
+        <div className="header-project-meta">
+          <h2 className="header-project-name" title={projectName}>
+            {projectName}
+          </h2>
+          <span className="header-project-desc" title={projectDescription || 'No description'}>
+            {projectDescription || 'Visual codebase architecture map.'}
+          </span>
+        </div>
       </div>
 
-      <div className="toolbar-divider"></div>
+      {/* Center side: Import and layout utilities */}
+      <div className="header-center-group">
+        {/* GitHub Import Form */}
+        <form onSubmit={handleGitHubSubmit} className="import-form">
+          <div className="input-with-icon">
+            <Github size={13} className="input-icon" />
+            <input 
+              type="text" 
+              placeholder="GitHub URL..." 
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+          <button type="submit" className="import-btn" disabled={isLoading}>
+            {isLoading ? <Loader size={11} className="animate-spin" /> : 'Import'}
+          </button>
+        </form>
 
-      {/* GitHub Import Form */}
-      <form onSubmit={handleGitHubSubmit} className="import-form">
-        <div className="input-with-icon">
-          <Github size={14} className="input-icon" />
-          <input 
-            type="text" 
-            placeholder="GitHub Repo URL..." 
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            disabled={isLoading}
-          />
-        </div>
-        <button type="submit" className="import-btn" disabled={isLoading}>
-          {isLoading ? <Loader size={12} className="animate-spin" /> : 'Import'}
+        {/* Local Folder Import */}
+        <button 
+          type="button" 
+          className="local-picker-btn" 
+          onClick={onImportLocalDirectory}
+          disabled={isLoading}
+          title={isLocalPickerSupported ? 'Import local project folder' : 'Directory Picker unsupported in this browser'}
+        >
+          <FolderPlus size={13} />
+          <span>Load Folder</span>
         </button>
-      </form>
 
-      {/* Local Folder Import */}
-      <button 
-        type="button" 
-        className="local-picker-btn" 
-        onClick={onImportLocalDirectory}
-        disabled={isLoading}
-        title={isLocalPickerSupported ? 'Import local project directory' : 'Directory Picker not supported in this browser'}
-      >
-        <FolderPlus size={14} />
-        <span>Load Local Folder</span>
-        {!isLocalPickerSupported && <span className="warning-label">Unsupported</span>}
-      </button>
+        <div className="header-divider"></div>
 
-      <div className="toolbar-divider"></div>
-
-      {/* Canvas Utilities */}
-      <div className="canvas-utilities">
+        {/* Canvas Utilities */}
         <button 
           onClick={onAutoLayout} 
           title="Auto-organize files hierarchy"
           className="utility-btn"
           disabled={isLoading}
         >
-          <Sparkles size={14} />
+          <Sparkles size={13} />
           <span>Auto Layout</span>
         </button>
+        
         <button 
           onClick={onAutoLink} 
           title="Automatically link file dependencies"
           className="utility-btn"
           disabled={isLoading}
         >
-          <Link2 size={14} />
+          <Link2 size={13} />
           <span>Auto-Link</span>
         </button>
+      </div>
 
+      {/* Right side: Zoom + Sidebars toggles */}
+      <div className="header-right-group">
+        {/* Zoom Controllers */}
+        <div className="zoom-controls">
+          <button onClick={onZoomOut} title="Zoom out" className="zoom-btn-circle"><ZoomOut size={12} /></button>
+          <span className="scale-readout" onClick={onZoomReset} title="Reset zoom (100%)">
+            {Math.round(scale * 100)}%
+          </span>
+          <button onClick={onZoomIn} title="Zoom in" className="zoom-btn-circle"><ZoomIn size={12} /></button>
+          <button onClick={onZoomReset} title="Fit screen" className="zoom-btn-circle"><Maximize2 size={11} /></button>
+        </div>
+
+        <div className="header-divider"></div>
+
+        {/* Toggle Panel buttons */}
         <button 
-          onClick={handleClearClick} 
-          title="Wipe canvas clean"
-          className="utility-btn danger"
-          disabled={isLoading}
+          type="button"
+          className={`sidebar-toggle-btn ${isLeftOpen ? 'active' : ''}`}
+          onClick={onToggleLeft}
+          title="Toggle Left File Explorer"
         >
-          <Trash2 size={14} />
-          <span>Clear Map</span>
+          <FileText size={14} />
+        </button>
+        
+        <button 
+          type="button"
+          className={`sidebar-toggle-btn ${isRightOpen ? 'active' : ''}`}
+          onClick={onToggleRight}
+          title="Toggle Right Project Inspector"
+        >
+          <Layers size={14} />
         </button>
       </div>
-
-      <div className="toolbar-divider"></div>
-
-      {/* Zoom Controllers */}
-      <div className="zoom-controls">
-        <button onClick={onZoomOut} title="Zoom out" className="zoom-btn-circle"><ZoomOut size={13} /></button>
-        <span className="scale-readout" onClick={onZoomReset} title="Reset zoom (100%)">
-          {Math.round(scale * 100)}%
-        </span>
-        <button onClick={onZoomIn} title="Zoom in" className="zoom-btn-circle"><ZoomIn size={13} /></button>
-        <button onClick={onZoomReset} title="Fit screen" className="zoom-btn-circle"><Maximize2 size={12} /></button>
-      </div>
-    </div>
+    </header>
   );
 };
