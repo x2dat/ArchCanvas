@@ -37,7 +37,10 @@ export default function App() {
       const savedState = localStorage.getItem('ac_state');
 
       if (savedNodes) setNodes(JSON.parse(savedNodes));
-      if (savedConns) setConnections(JSON.parse(savedConns));
+      if (savedConns) {
+        const connsList = JSON.parse(savedConns) as NodeConnection[];
+        setConnections(connsList.filter(c => c.fromNodeId !== c.toNodeId));
+      }
       if (savedState) setCanvasState(JSON.parse(savedState));
     } catch (e) {
       console.error('Failed to load canvas state', e);
@@ -45,10 +48,11 @@ export default function App() {
   }, []);
 
   const saveState = (newNodes: CodeNode[], newConns: NodeConnection[]) => {
+    const cleanConns = newConns.filter(c => c.fromNodeId !== c.toNodeId);
     setNodes(newNodes);
-    setConnections(newConns);
+    setConnections(cleanConns);
     localStorage.setItem('ac_nodes', JSON.stringify(newNodes));
-    localStorage.setItem('ac_connections', JSON.stringify(newConns));
+    localStorage.setItem('ac_connections', JSON.stringify(cleanConns));
   };
 
   // Helper to filter out assets, dependencies, and build configurations
