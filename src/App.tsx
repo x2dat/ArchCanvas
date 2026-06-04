@@ -658,6 +658,8 @@ export default function App() {
       md += `\`\`\`\n`;
     }
 
+    md += `\n---\n\n<p align="center">\n  <a href="https://github.com/x2dat/ArchCanvas">\n    <img src="https://img.shields.io/badge/Generated_with-ArchCanvas-8b5cf6?style=for-the-badge" alt="Generated with ArchCanvas" />\n  </a>\n</p>\n`;
+
     return md;
   };
 

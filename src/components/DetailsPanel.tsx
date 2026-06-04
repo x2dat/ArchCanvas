@@ -180,6 +180,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
 
     svgStr += `  <!-- Connection Links -->\n`;
     connections.forEach(conn => {
+      if (conn.fromNodeId === conn.toNodeId) return; // Skip self-loops
       const fromNode = nodes.find(n => n.id === conn.fromNodeId);
       const toNode = nodes.find(n => n.id === conn.toNodeId);
       if (!fromNode || !toNode) return;
