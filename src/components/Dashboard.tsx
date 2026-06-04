@@ -22,9 +22,18 @@ interface DashboardProps {
   onSelectProject: (projectId: string) => void;
   onLogout: () => void;
   onUpdateProfile: (updates: { name: string; password?: string }) => Promise<void>;
+  showAlert?: (title: string, message: string) => void;
+  showConfirm?: (title: string, message: string, onConfirm: () => void, isDestructive?: boolean, confirmText?: string, cancelText?: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProject, onLogout, onUpdateProfile }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  currentUser, 
+  onSelectProject, 
+  onLogout, 
+  onUpdateProfile,
+  showAlert,
+  showConfirm
+}) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -96,11 +105,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
 
     if (newPassword) {
       if (newPassword.length < 6) {
-        alert('Password must be at least 6 characters long.');
+        if (showAlert) {
+          showAlert('Invalid Password', 'Password must be at least 6 characters long.');
+        } else {
+          alert('Password must be at least 6 characters long.');
+        }
         return;
       }
       if (newPassword !== confirmPassword) {
-        alert('Passwords do not match.');
+        if (showAlert) {
+          showAlert('Mismatch', 'Passwords do not match.');
+        } else {
+          alert('Passwords do not match.');
+        }
         return;
       }
     }
@@ -113,7 +130,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
       });
       closeProfileModal();
     } catch (err: any) {
-      alert(`Error updating profile: ${err.message}`);
+      if (showAlert) {
+        showAlert('Save Failed', `Error updating profile: ${err.message}`);
+      } else {
+        alert(`Error updating profile: ${err.message}`);
+      }
     } finally {
       setIsSavingProfile(false);
     }
@@ -121,9 +142,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
 
   const handleDeleteProject = async (projectId: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid opening the project workspace card
-    if (window.confirm(`Are you sure you want to delete "${name}"? This will permanently wipe all mapping layout and custom annotations.`)) {
+    
+    const deleteAction = async () => {
       await storageService.deleteProject(projectId);
       loadProjects();
+    };
+
+    if (showConfirm) {
+      showConfirm(
+        'Delete Project',
+        `Are you sure you want to delete "${name}"? This will permanently wipe all mapping layout and custom annotations.`,
+        deleteAction,
+        true, // isDestructive
+        'Delete',
+        'Cancel'
+      );
+    } else {
+      if (window.confirm(`Are you sure you want to delete "${name}"? This will permanently wipe all mapping layout and custom annotations.`)) {
+        deleteAction();
+      }
     }
   };
 
