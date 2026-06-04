@@ -9,8 +9,9 @@
 
 <br />
 
-**ArchCanvas** is a browser-native visual workspace designed to map folder hierarchies, annotate files, draw module data flows, and generate styled documentation. Instead of maintaining static drawings, ArchCanvas connects directly to your codebase, letting you lay out structure visually and compile a clean `.github/ARCHITECTURE.md` file (complete with interactive Mermaid diagrams) for your repository. <br> <hr>
-Check it out: <a href="https://x2dat.github.io/ArchCanvas/" target="_blank" rel="noopener noreferrer">https://x2dat.github.io/ArchCanvas/</a>
+**ArchCanvas** is a browser-native visual workspace designed to map folder hierarchies, annotate files, draw module data flows, and generate styled documentation. Instead of maintaining static drawings, ArchCanvas connects directly to your codebase, letting you lay out structure visually and compile a clean `ARCHITECTURE.md` file (complete with interactive Mermaid diagrams) for your repository.
+
+Check it out: [https://x2dat.github.io/ArchCanvas/](https://x2dat.github.io/ArchCanvas/)
 
 ---
 
@@ -22,7 +23,15 @@ Check it out: <a href="https://x2dat.github.io/ArchCanvas/" target="_blank" rel=
 *   🔀 **SVG Bezier Connectors**: Drag-and-drop linking anchors on the edges of folders/files cards to draw glowing vector curves indicating imports, dependencies, or data flows.
 *   🏷️ **Architectural Layers**: Group elements into logical tiers (UI Components, Business Logic, API Routers, Database Models, Configuration Helpers) with custom color badges.
 *   📝 **GFM & Mermaid Exporter**: Compile custom annotations, component descriptions, and connection states into standardized GitHub-Flavored Markdown.
-*   Toggleable Sidebar: Hide the project overview/editor sidebar at the click of a button to maximize drawing space, or click any component node to slide it back open.
+*   🛠️ **Sidebar Developer Toolkit**: Access a specialized developer utility dropdown in the Project Overview panel containing actions to:
+    *   **Delete All Links**: Reset/clear all custom connection curves.
+    *   **Undo Auto-Link**: Instantly revert the last automatic link dependency scan.
+    *   **Auto-Classify Layers**: Automatically scan file structures and paths to categorize folders into architectural layers.
+    *   **Clear All Layers**: Reset all components back to general/neutral badges.
+    *   **Clear Map (Wipe)**: Completely wipe the canvas clean to start mapping a new project.
+*   🧠 **Auto-Link Dependency Scanner**: Automatically matches relative imports inside Javascript/Typescript/CSS files and siblings (e.g. `Button.tsx` and `Button.css`) to bootstrap the mapping process.
+*   🛡️ **Self-Loop Filtering**: Automatic detection and filtering of self-referential import paths in loading hooks, save utilities, and exported SVGs.
+*   💎 **Glassmorphic Layout**: Responsive UI with a centered horizontal dock, retractable sidebar panel, and smooth animations.
 
 ---
 
@@ -70,11 +79,7 @@ Ensure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 1. Clone or navigate to the project directory:
    ```bash
-<<<<<<< HEAD
-   cd architecture-canvas
-=======
    cd ArchCanvas
->>>>>>> 9a5526252a704746b0865ff219d50728a7c73b22
    ```
 
 2. Install dependencies:
@@ -98,7 +103,7 @@ Ensure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 1.  Launch the app and click **Load Local Folder** (on supported browsers like Chrome/Edge) or paste a public GitHub URL in the **Import** input.
 2.  Your folders and files will arrange themselves into an initial cascading directory grid.
-3.  Hover over any card to reveal its left (input) and right (output) socket anchors.
+3.  Hover over any card to reveal its right socket anchor.
 4.  Drag a line from a card's **Right Anchor** to link it to another card, mapping out import rules or data flows.
 5.  Click a card to select it, open the editor panel on the right, assign its **Architectural Layer**, and describe its purpose.
-6.  Once you're done, click **Generate Doc File** in the panel to copy a formatted markdown template with directory breakdown, metrics tables, and Mermaid flow diagrams to create your `.github/ARCHITECTURE.md` file!
+6.  Once you're done, click **Export MD** in the panel (or **Copy Markdown to Clipboard**) to generate a formatted markdown template with directory breakdown, metrics tables, and Mermaid flow diagrams to create your `ARCHITECTURE.md` file!
