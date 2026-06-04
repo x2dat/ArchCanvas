@@ -169,63 +169,10 @@ export const storageService = {
     }));
   },
 
-  createProject: async (userId: string, name: string, description: string): Promise<Project> => {
-    const client = getSupabaseClient();
-    // Generate an alphanumeric string slice matching your text primary keys
-    const projectId = Math.random().toString(36).substring(2, 9);
-    
-    const newProject: Project = {
-      id: projectId,
-      userId,
-      name: name.trim() || 'Untitled Codebase',
-      description: description.trim() || 'Visual codebase architecture map.',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      nodeCount: 0,
-      connCount: 0,
-      layerStats: { ui: 0, logic: 0, api: 0, db: 0, config: 0, none: 0 }
-    };
-
-    const emptyData: ProjectMapData = {
-      nodes: [],
-      connections: [],
-      canvasState: { panX: 50, panY: 80, scale: 0.85 }
-    };
-
-    const { error: projError } = await client
-      .from('projects')
-      .insert({
-        id: newProject.id,
-        user_id: userId,
-        name: newProject.name,
-        description: newProject.description,
-        created_at: newProject.createdAt,
-        updated_at: newProject.updatedAt,
-        node_count: newProject.nodeCount,
-        conn_count: newProject.connCount,
-        layer_stats: newProject.layerStats
-      });
-
-    if (projError) throw new Error(`Project creation failed: ${projError.message}`);
-
-    const { error: dataError } = await client
-      .from('project_data')
-      .insert({
-        project_id: newProject.id,
-        nodes: emptyData.nodes,
-        connections: emptyData.connections,
-        canvas_state: emptyData.canvasState,
-        updated_at: new Date().toISOString()
-      });
-
-    if (dataError) {
-      // Cascade delete metadata ghost entry if layout table link fails on initiation
-      await client.from('projects').delete().eq('id', newProject.id);
-      throw new Error(`Project layout initialization failed: ${dataError.message}`);
-    }
-
-    return newProject;
-  },
+ createProject: async (userId: string, name: string, description: string): Promise<Project> => {
+  const client = getSupabaseClient();
+  const projectId = Math.random().toString(36).substring(2, 9);
+  // ... maps fields and immediately inserts into 'projects'
 
   getProjectData: async (projectId: string): Promise<ProjectMapData | null> => {
     const client = getSupabaseClient();
