@@ -191,14 +191,14 @@
 .toolbar-panel {
   position: absolute;
   top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 32px;
+  right: 32px;
   height: 46px;
   border-radius: 23px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 24px;
+  gap: 16px;
   z-index: 20;
   white-space: nowrap;
 }
@@ -337,6 +337,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 
 .zoom-btn-circle {
@@ -1708,8 +1709,8 @@
 /* --- BACK TO DASHBOARD FLOATING BUTTON --- */
 .back-dashboard-btn {
   position: absolute;
-  top: 76px;
-  left: 16px;
+  top: 78px;
+  left: 32px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -1770,7 +1771,8 @@
 }
 
 .sidebar-open .toolbar-panel {
-  left: calc(50% - 176px); /* Shift toolbar left to center in the remaining screen width when sidebar is open */
+  right: 384px; /* 352px sidebar width + 32px spacing */
+  left: 32px;
 }
 
 /* Force collapsed icons for toolbar buttons when sidebar is open to prevent overlapping */
@@ -1828,12 +1830,13 @@
 }
 
 @media (max-width: 800px) {
-  /* On very small devices, scale down the toolbar spacing */
+  /* On very small devices, scale down the toolbar */
   .toolbar-panel {
-    transform: translateX(-50%) scale(0.9);
+    transform: scale(0.95);
+    transform-origin: top center;
   }
   .sidebar-open .toolbar-panel {
-    transform: translateX(-50%) scale(0.8);
-    left: 50%; /* Reset centering shift on super narrow screens and rely on overlay */
+    transform: scale(0.85);
+    transform-origin: top center;
   }
 }
