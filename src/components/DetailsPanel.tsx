@@ -34,6 +34,7 @@ interface DetailsPanelProps {
   onClearCanvas: () => void;
   onUndo: () => void;
   canUndo: boolean;
+  showAlert?: (title: string, message: string) => void;
 }
 
 export const DetailsPanel: React.FC<DetailsPanelProps> = ({
@@ -51,7 +52,8 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   onAutoClassifyAllLayers,
   onClearCanvas,
   onUndo,
-  canUndo
+  canUndo,
+  showAlert
 }) => {
   const [copied, setCopied] = useState(false);
   const [isToolkitOpen, setIsToolkitOpen] = useState(false);
@@ -86,10 +88,18 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
         if (Array.isArray(data.nodes) && Array.isArray(data.connections)) {
           onImportJson(data.nodes, data.connections);
         } else {
-          alert('Invalid save file format. Must contain nodes and connections.');
+          if (showAlert) {
+            showAlert('Import Error', 'Invalid save file format. Must contain nodes and connections.');
+          } else {
+            alert('Invalid save file format. Must contain nodes and connections.');
+          }
         }
       } catch (err) {
-        alert('Failed to parse file. Please verify it is a valid JSON save file.');
+        if (showAlert) {
+          showAlert('Import Error', 'Failed to parse file. Please verify it is a valid JSON save file.');
+        } else {
+          alert('Failed to parse file. Please verify it is a valid JSON save file.');
+        }
       }
     };
     reader.readAsText(file);
