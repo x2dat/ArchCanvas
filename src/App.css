@@ -690,7 +690,7 @@
 /* Floating Sidebar trigger button */
 .sidebar-trigger-btn {
   position: absolute;
-  top: 16px;
+  bottom: 16px;
   right: 16px;
   height: 46px;
   border-radius: 23px;
