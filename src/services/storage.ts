@@ -90,21 +90,24 @@ export const storageService = {
     if (error) throw new Error(error.message);
     if (!data.user) throw new Error('Authentication failed.');
 
-    // Fetch user profile from public table
+    // 🧠 Fix: Use maybeSingle() to handle instant email authentication delays gracefully
     const { data: profile, error: profileError } = await client
       .from('profiles')
       .select('name')
       .eq('id', data.user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
-      console.warn('Failed to fetch profile from database', profileError);
+      console.warn('Non-fatal profile sync delay:', profileError.message);
     }
+
+    // Dynamic Fallback: If trigger hasn't finished writing the profile row, pull their email prefix
+    const fallbackName = data.user.email ? data.user.email.split('@')[0] : 'Developer';
 
     return {
       id: data.user.id,
       email: normalizedEmail,
-      name: (!profileError && profile?.name) ? profile.name : 'Developer'
+      name: (profile && profile.name) ? profile.name : fallbackName
     };
   },
 
@@ -117,18 +120,25 @@ export const storageService = {
   getCurrentUser: async (): Promise<User | null> => {
     const client = getSupabaseClient();
     const { data: { session } } = await client.auth.getSession();
+    
     if (session?.user) {
-      // Fetch name from profile
-      const { data: profile } = await client
+      // 🧠 Fix: Swapped out .single() here as well to prevent app locks on persistent session reloads
+      const { data: profile, error: profileError } = await client
         .from('profiles')
         .select('name')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('Non-fatal session profile fetch warning:', profileError.message);
+      }
+
+      const fallbackName = session.user.email ? session.user.email.split('@')[0] : 'Developer';
 
       return {
         id: session.user.id,
         email: session.user.email || '',
-        name: profile?.name || 'Developer'
+        name: profile?.name || fallbackName
       };
     }
     return null;
@@ -161,7 +171,9 @@ export const storageService = {
 
   createProject: async (userId: string, name: string, description: string): Promise<Project> => {
     const client = getSupabaseClient();
+    // Generate an alphanumeric string slice matching your text primary keys
     const projectId = Math.random().toString(36).substring(2, 9);
+    
     const newProject: Project = {
       id: projectId,
       userId,
@@ -206,7 +218,11 @@ export const storageService = {
         updated_at: new Date().toISOString()
       });
 
-    if (dataError) throw new Error(`Project layout initialization failed: ${dataError.message}`);
+    if (dataError) {
+      // Cascade delete metadata ghost entry if layout table link fails on initiation
+      await client.from('projects').delete().eq('id', newProject.id);
+      throw new Error(`Project layout initialization failed: ${dataError.message}`);
+    }
 
     return newProject;
   },
@@ -217,7 +233,7 @@ export const storageService = {
       .from('project_data')
       .select('nodes, connections, canvas_state')
       .eq('project_id', projectId)
-      .single();
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!data) return null;
@@ -233,7 +249,7 @@ export const storageService = {
     const client = getSupabaseClient();
     const cleanConns = connections.filter(c => c.fromNodeId !== c.toNodeId);
 
-    // Compile layer stats
+    // Compile dynamic layer metrics matrices for dashboard previews
     const layerStats = { ui: 0, logic: 0, api: 0, db: 0, config: 0, none: 0 };
     nodes.forEach(n => {
       if (n.layer && n.layer in layerStats) {
@@ -245,7 +261,8 @@ export const storageService = {
 
     const updatedAtStr = new Date().toISOString();
 
-    const { error: projError } = await client
+    // Fire bulk synchronization queries concurrently across Postgres engines
+    const updateMeta = client
       .from('projects')
       .update({
         updated_at: updatedAtStr,
@@ -255,9 +272,7 @@ export const storageService = {
       })
       .eq('id', projectId);
 
-    if (projError) throw new Error(`Project metadata save failed: ${projError.message}`);
-
-    const { error: dataError } = await client
+    const updateData = client
       .from('project_data')
       .upsert({
         project_id: projectId,
@@ -267,7 +282,10 @@ export const storageService = {
         updated_at: updatedAtStr
       });
 
-    if (dataError) throw new Error(`Project coordinate data sync failed: ${dataError.message}`);
+    const [metaRes, dataRes] = await Promise.all([updateMeta, updateData]);
+
+    if (metaRes.error) throw new Error(`Project metadata save failed: ${metaRes.error.message}`);
+    if (dataRes.error) throw new Error(`Project coordinate data sync failed: ${dataRes.error.message}`);
   },
 
   deleteProject: async (projectId: string): Promise<void> => {
@@ -293,7 +311,7 @@ export const storageService = {
       })
       .eq('id', projectId)
       .select()
-      .single();
+      .maybeSingle(); // 🧠 Swapped to maybeSingle for consistency and protection against layout shifts
 
     if (error) throw new Error(error.message);
     if (!data) return null;
