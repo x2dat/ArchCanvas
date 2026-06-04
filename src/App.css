@@ -984,3 +984,11 @@
 .toolkit-item:hover:not(:disabled) .item-desc {
   color: var(--text-muted);
 }
+
+.toolkit-item.warning svg {
+  color: var(--accent-yellow);
+}
+
+.toolkit-item.warning .item-title {
+  color: var(--accent-yellow);
+}

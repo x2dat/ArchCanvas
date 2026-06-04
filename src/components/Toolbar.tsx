@@ -7,8 +7,7 @@ import {
   ZoomOut, 
   Sparkles,
   Loader,
-  Link2,
-  RotateCcw
+  Link2
 } from 'lucide-react';
 
 const Github: React.FC<{ size?: number; className?: string }> = ({ size = 16, className }) => (
@@ -32,8 +31,6 @@ interface ToolbarProps {
   onImportLocalDirectory: () => void;
   onAutoLayout: () => void;
   onAutoLink: () => void;
-  onUndo: () => void;
-  canUndo: boolean;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
@@ -46,8 +43,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onImportLocalDirectory,
   onAutoLayout,
   onAutoLink,
-  onUndo,
-  canUndo,
   onZoomIn,
   onZoomOut,
   onZoomReset,
@@ -130,18 +125,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Link2 size={14} />
           <span>Auto-Link</span>
         </button>
-        {canUndo && (
-          <button 
-            onClick={onUndo} 
-            title="Revert last dependency auto-link"
-            className="utility-btn"
-            style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#ffd073', background: 'rgba(245, 158, 11, 0.08)' }}
-            disabled={isLoading}
-          >
-            <RotateCcw size={14} />
-            <span>Undo Link</span>
-          </button>
-        )}
+
         <button 
           onClick={handleClearClick} 
           title="Wipe canvas clean"

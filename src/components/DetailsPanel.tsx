@@ -13,7 +13,8 @@ import {
   Image as ImageIcon,
   Wrench,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import type { CodeNode, NodeConnection, LayerType } from '../types';
 
@@ -31,6 +32,8 @@ interface DetailsPanelProps {
   onClearAllLayers: () => void;
   onAutoClassifyAllLayers: () => void;
   onClearCanvas: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
 }
 
 export const DetailsPanel: React.FC<DetailsPanelProps> = ({
@@ -46,7 +49,9 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   onClearAllConnections,
   onClearAllLayers,
   onAutoClassifyAllLayers,
-  onClearCanvas
+  onClearCanvas,
+  onUndo,
+  canUndo
 }) => {
   const [copied, setCopied] = useState(false);
   const [isToolkitOpen, setIsToolkitOpen] = useState(false);
@@ -365,6 +370,20 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
                         <span className="item-desc">Wipe all connection lines</span>
                       </div>
                     </button>
+                    {canUndo && (
+                      <button 
+                        type="button" 
+                        onClick={() => { onUndo(); setIsToolkitOpen(false); }}
+                        className="toolkit-item warning"
+                        title="Revert last auto-link"
+                      >
+                        <RotateCcw size={13} />
+                        <div className="item-text">
+                          <span className="item-title">Undo Auto-Link</span>
+                          <span className="item-desc">Revert last linked scan</span>
+                        </div>
+                      </button>
+                    )}
                     <button 
                       type="button" 
                       onClick={() => { onAutoClassifyAllLayers(); setIsToolkitOpen(false); }}

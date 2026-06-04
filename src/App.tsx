@@ -706,8 +706,6 @@ export default function App() {
         onImportLocalDirectory={handleImportLocalDirectory}
         onAutoLayout={handleAutoLayout}
         onAutoLink={handleAutoLinkDependencies}
-        onUndo={handleUndoAutoLink}
-        canUndo={!!historyBackup}
         onZoomIn={() => setCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
         onZoomOut={() => setCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
         onZoomReset={() => setCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
@@ -774,6 +772,8 @@ export default function App() {
             }
           }}
           onClearCanvas={handleClearCanvas}
+          onUndo={handleUndoAutoLink}
+          canUndo={!!historyBackup}
         />
       </div>
     </div>
