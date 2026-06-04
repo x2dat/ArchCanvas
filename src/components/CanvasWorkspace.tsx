@@ -108,16 +108,16 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     e.stopPropagation();
     onSelectNode(nodeId);
     
-    // Don't drag if anchor click
     if ((e.target as HTMLElement).classList.contains('card-anchor')) return;
 
     const targetNode = nodesRef.current.find(n => n.id === nodeId);
     if (!targetNode) return;
 
     setDragNodeId(nodeId);
+    // Calculate drag offset in raw canvas space coordinates by dividing screen delta by scale
     setDragStart({
-      x: e.clientX - targetNode.x * scale,
-      y: e.clientY - targetNode.y * scale
+      x: e.clientX / scale - targetNode.x,
+      y: e.clientY / scale - targetNode.y
     });
   }, [onSelectNode, scale]);
 
@@ -138,7 +138,6 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
 
   // 3. Mouse Move Handler
   const handleMouseMove = (e: React.MouseEvent) => {
-    // Canvas Pan loop
     if (isPanning) {
       setCanvasState(prev => ({
         ...prev,
@@ -148,30 +147,29 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       return;
     }
 
-    // Card Drag loop
     if (dragNodeId) {
-      const nodeX = (e.clientX - dragStart.x) / scale;
-      const nodeY = (e.clientY - dragStart.y) / scale;
+      // Process updated translation parameters perfectly matched to cursor speed
+      const nodeX = e.clientX / scale - dragStart.x;
+      const nodeY = e.clientY / scale - dragStart.y;
       onNodeDrag(dragNodeId, Math.round(nodeX), Math.round(nodeY));
       return;
     }
 
-    // Connect line draw loop
     if (connectFromId) {
       const canvasCoords = screenToCanvasCoords(e.clientX, e.clientY);
       setTempLineEnd(canvasCoords);
       
-      // Highlight hover card target
+      // Bounding-Box Detection Check
       const target = (e.target as HTMLElement).closest('.node-card');
       if (target) {
-        // Get node id by comparing coordinates or data attributes
-        const rect = target.getBoundingClientRect();
-        const canvasCardCoords = screenToCanvasCoords(rect.left, rect.top);
-        
-        // Find which node is at this coordinate
-        const hoveredNode = nodes.find(
-          n => Math.abs(n.x - canvasCardCoords.x) < 5 && Math.abs(n.y - canvasCardCoords.y) < 5
+        // Look for any node where the mouse coordinates fall strictly within its bounding box boundaries
+        const hoveredNode = nodes.find(n => 
+          canvasCoords.x >= n.x && 
+          canvasCoords.x <= n.x + CARD_WIDTH &&
+          canvasCoords.y >= n.y && 
+          canvasCoords.y <= n.y + CARD_HEIGHT
         );
+
         if (hoveredNode && hoveredNode.id !== connectFromId) {
           setConnectTargetId(hoveredNode.id);
         }
