@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, Home } from 'lucide-react';
 import { Toolbar } from './components/Toolbar';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { DetailsPanel } from './components/DetailsPanel';
@@ -725,6 +725,17 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Back to Dashboard Floating Button */}
+      <button 
+        type="button"
+        className="back-dashboard-btn glass-plate animate-fade-in" 
+        onClick={handleExitProject}
+        title="Return to Projects Dashboard"
+      >
+        <Home size={14} />
+        <span>Dashboard</span>
+      </button>
+
       {importWarning && (
         <div className="import-warning-banner glass-plate" style={{
           position: 'absolute',
@@ -777,7 +788,6 @@ export default function App() {
         onZoomReset={() => handleUpdateCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
         scale={canvasState.scale}
         isLoading={isLoading}
-        onExitProject={handleExitProject}
       />
 
       {/* Main Drag-Pan Canvas Port */}
