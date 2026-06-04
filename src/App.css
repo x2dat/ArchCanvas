@@ -191,7 +191,8 @@
 .toolbar-panel {
   position: absolute;
   top: 16px;
-  left: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   height: 46px;
   border-radius: 23px;
   display: flex;
@@ -199,6 +200,11 @@
   padding: 0 16px;
   gap: 12px;
   z-index: 20;
+  white-space: nowrap;
+}
+
+.toolbar-panel > * {
+  flex-shrink: 0;
 }
 
 .toolbar-logo {
