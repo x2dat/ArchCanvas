@@ -1761,3 +1761,79 @@
   -webkit-box-orient: vertical;  
   overflow: hidden;
 }
+
+/* Responsive Floating Toolbar Controls & Centering */
+.toolbar-logo h1 {
+  font-size: 0.95rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.sidebar-open .toolbar-panel {
+  left: calc(50% - 176px); /* Shift toolbar left to center in the remaining screen width when sidebar is open */
+}
+
+/* Force collapsed icons for toolbar buttons when sidebar is open to prevent overlapping */
+.sidebar-open .toolbar-panel .local-picker-btn span,
+.sidebar-open .toolbar-panel .utility-btn span {
+  display: none;
+}
+
+.sidebar-open .toolbar-panel .local-picker-btn, 
+.sidebar-open .toolbar-panel .utility-btn {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  justify-content: center;
+  gap: 0;
+}
+
+.sidebar-open .toolbar-logo h1 {
+  display: none;
+}
+
+.sidebar-open .import-form input {
+  width: 120px;
+}
+
+/* Media Query Responsive Defaults for Smaller Screens */
+@media (max-width: 1250px) {
+  .toolbar-panel .local-picker-btn span,
+  .toolbar-panel .utility-btn span {
+    display: none;
+  }
+  .toolbar-panel .local-picker-btn, 
+  .toolbar-panel .utility-btn {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    justify-content: center;
+    gap: 0;
+  }
+  .toolbar-logo h1 {
+    display: none;
+  }
+}
+
+@media (max-width: 950px) {
+  .import-form input {
+    width: 110px;
+  }
+  .toolbar-panel {
+    gap: 8px;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 800px) {
+  /* On very small devices, scale down the toolbar spacing */
+  .toolbar-panel {
+    transform: translateX(-50%) scale(0.9);
+  }
+  .sidebar-open .toolbar-panel {
+    transform: translateX(-50%) scale(0.8);
+    left: 50%; /* Reset centering shift on super narrow screens and rely on overlay */
+  }
+}
