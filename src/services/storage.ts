@@ -169,10 +169,82 @@ export const storageService = {
     }));
   },
 
- createProject: async (userId: string, name: string, description: string): Promise<Project> => {
-  const client = getSupabaseClient();
-  const projectId = Math.random().toString(36).substring(2, 9);
-  // ... maps fields and immediately inserts into 'projects'
+  createProject: async (userId: string, name: string, description: string): Promise<Project> => {
+    const client = getSupabaseClient();
+    
+    // 🛡️ GUARD: Ensure the profile row exists in public.profiles before doing anything else.
+    // If the background Postgres replication trigger hasn't committed yet, this client-side 
+    // upsert will explicitly clear the foreign key race condition.
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      if (sessionData?.session?.user) {
+        const user = sessionData.session.user;
+        await client
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: user.email || '',
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'Developer',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      }
+    } catch (profileUpsertErr) {
+      console.warn("Profile pre-seed warning (attempting project creation regardless):", profileUpsertErr);
+    }
+
+    const projectId = Math.random().toString(36).substring(2, 9);
+    const newProject: Project = {
+      id: projectId,
+      userId,
+      name: name.trim() || 'Untitled Codebase',
+      description: description.trim() || 'Visual codebase architecture map.',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      nodeCount: 0,
+      connCount: 0,
+      layerStats: { ui: 0, logic: 0, api: 0, db: 0, config: 0, none: 0 }
+    };
+
+    const emptyData: ProjectMapData = {
+      nodes: [],
+      connections: [],
+      canvasState: { panX: 50, panY: 80, scale: 0.85 }
+    };
+
+    const { error: projError } = await client
+      .from('projects')
+      .insert({
+        id: newProject.id,
+        user_id: userId,
+        name: newProject.name,
+        description: newProject.description,
+        created_at: newProject.createdAt,
+        updated_at: newProject.updatedAt,
+        node_count: newProject.nodeCount,
+        conn_count: newProject.connCount,
+        layer_stats: newProject.layerStats
+      });
+
+    if (projError) throw new Error(`Project creation failed: ${projError.message}`);
+
+    const { error: dataError } = await client
+      .from('project_data')
+      .insert({
+        project_id: newProject.id,
+        nodes: emptyData.nodes,
+        connections: emptyData.connections,
+        canvas_state: emptyData.canvasState,
+        updated_at: new Date().toISOString()
+      });
+
+    if (dataError) {
+      // Clean up orphaned metadata entry if map initialization fails to keep data clean
+      await client.from('projects').delete().eq('id', newProject.id);
+      throw new Error(`Project layout initialization failed: ${dataError.message}`);
+    }
+
+    return newProject;
+  },
 
   getProjectData: async (projectId: string): Promise<ProjectMapData | null> => {
     const client = getSupabaseClient();
@@ -258,7 +330,7 @@ export const storageService = {
       })
       .eq('id', projectId)
       .select()
-      .maybeSingle(); // 🧠 Swapped to maybeSingle for consistency and protection against layout shifts
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!data) return null;
