@@ -757,6 +757,23 @@ export default function App() {
             setSelectedNodeId(null);
             setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
           }}
+          onClearAllConnections={() => {
+            if (window.confirm('Delete all connection lines? This cannot be undone.')) {
+              saveState(nodes, []);
+            }
+          }}
+          onClearAllLayers={() => {
+            if (window.confirm('Reset all nodes to general layer type?')) {
+              const updated = nodes.map(n => ({ ...n, layer: 'none' as const }));
+              saveState(updated, connections);
+            }
+          }}
+          onAutoClassifyAllLayers={() => {
+            if (window.confirm('Scan file paths and re-classify architectural layers? This will override custom layers.')) {
+              const updated = nodes.map(n => ({ ...n, layer: classifyLayer(n.path) }));
+              saveState(updated, connections);
+            }
+          }}
         />
       </div>
     </div>

@@ -291,10 +291,6 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         ))}
 
       </div>
-
-      <div className="workspace-instructions">
-        🖱️ Left-Click + Drag Background to Pan • ⚙️ Scroll to Zoom • 🔀 Drag anchor dots to link files
-      </div>
     </div>
   );
 };

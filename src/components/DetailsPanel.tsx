@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Trash2, 
   Check, 
@@ -10,7 +10,10 @@ import {
   Upload,
   Code,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Wrench,
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import type { CodeNode, NodeConnection, LayerType } from '../types';
 
@@ -24,6 +27,9 @@ interface DetailsPanelProps {
   onClose: () => void;
   isLoading?: boolean;
   onImportJson: (nodes: CodeNode[], connections: NodeConnection[]) => void;
+  onClearAllConnections: () => void;
+  onClearAllLayers: () => void;
+  onAutoClassifyAllLayers: () => void;
 }
 
 export const DetailsPanel: React.FC<DetailsPanelProps> = ({
@@ -35,10 +41,29 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   onExportMarkdown,
   onClose,
   isLoading = false,
-  onImportJson
+  onImportJson,
+  onClearAllConnections,
+  onClearAllLayers,
+  onAutoClassifyAllLayers
 }) => {
   const [copied, setCopied] = useState(false);
+  const [isToolkitOpen, setIsToolkitOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toolkitRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (toolkitRef.current && !toolkitRef.current.contains(e.target as Node)) {
+        setIsToolkitOpen(false);
+      }
+    };
+    if (isToolkitOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isToolkitOpen]);
 
   const handleImportJsonClick = () => {
     fileInputRef.current?.click();
@@ -307,6 +332,65 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
             <p>1. Drag nodes to arrange your codebase structure visually.</p>
             <p>2. Drag the **Right Anchor handle** of a card onto any other card to draw a dependency link.</p>
             <p>3. Select a node to write descriptions and assign architectural layers.</p>
+          </div>
+
+          <div className="panel-actions-section">
+            <div className="toolkit-header-row">
+              <h4>Developer Toolkit</h4>
+              <div className="toolkit-dropdown-container" ref={toolkitRef}>
+                <button
+                  type="button"
+                  className={`toolkit-trigger-btn ${isToolkitOpen ? 'active' : ''}`}
+                  onClick={() => setIsToolkitOpen(!isToolkitOpen)}
+                  title="Open developer toolkit utilities"
+                >
+                  <Wrench size={13} />
+                  <span>Toolkit Menu</span>
+                  <ChevronDown size={11} className={`arrow-icon ${isToolkitOpen ? 'rotated' : ''}`} />
+                </button>
+                
+                {isToolkitOpen && (
+                  <div className="toolkit-dropdown-menu glass-plate">
+                    <button 
+                      type="button" 
+                      onClick={() => { onClearAllConnections(); setIsToolkitOpen(false); }}
+                      className="toolkit-item danger"
+                      disabled={connections.length === 0}
+                    >
+                      <Trash2 size={13} />
+                      <div className="item-text">
+                        <span className="item-title">Delete All Links</span>
+                        <span className="item-desc">Wipe all connection lines</span>
+                      </div>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => { onAutoClassifyAllLayers(); setIsToolkitOpen(false); }}
+                      className="toolkit-item"
+                      disabled={nodes.length === 0}
+                    >
+                      <Sparkles size={13} />
+                      <div className="item-text">
+                        <span className="item-title">Auto-Classify Layers</span>
+                        <span className="item-desc">Re-detect folder layer types</span>
+                      </div>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => { onClearAllLayers(); setIsToolkitOpen(false); }}
+                      className="toolkit-item"
+                      disabled={nodes.length === 0}
+                    >
+                      <Layers size={13} />
+                      <div className="item-text">
+                        <span className="item-title">Clear All Layers</span>
+                        <span className="item-desc">Reset all cards to General</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="panel-actions-section">
