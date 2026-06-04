@@ -32,13 +32,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     setLoading(true);
 
     // Add a tiny artificial delay to simulate network latency for better UX feel
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         if (isRegister) {
-          const user = storageService.registerUser(email, password, name);
+          const user = await storageService.registerUser(email, password, name);
           onAuthSuccess(user);
         } else {
-          const user = storageService.loginUser(email, password);
+          const user = await storageService.loginUser(email, password);
           onAuthSuccess(user);
         }
       } catch (err: any) {

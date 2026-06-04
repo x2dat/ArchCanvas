@@ -37,10 +37,13 @@ export default function App() {
 
   // Load user session on mount
   useEffect(() => {
-    const sessionUser = storageService.getCurrentUser();
-    if (sessionUser) {
-      setCurrentUser(sessionUser);
-    }
+    const loadSession = async () => {
+      const sessionUser = await storageService.getCurrentUser();
+      if (sessionUser) {
+        setCurrentUser(sessionUser);
+      }
+    };
+    loadSession();
   }, []);
 
   // Load project map data whenever activeProjectId changes
@@ -52,12 +55,15 @@ export default function App() {
       setSelectedNodeId(null);
       return;
     }
-    const data = storageService.getProjectData(activeProjectId);
-    if (data) {
-      setNodes(data.nodes);
-      setConnections(data.connections);
-      setCanvasState(data.canvasState);
-    }
+    const loadProject = async () => {
+      const data = await storageService.getProjectData(activeProjectId);
+      if (data) {
+        setNodes(data.nodes);
+        setConnections(data.connections);
+        setCanvasState(data.canvasState);
+      }
+    };
+    loadProject();
   }, [activeProjectId]);
 
   const handleUpdateCanvasState = (updater: CanvasState | ((prev: CanvasState) => CanvasState)) => {

@@ -36,8 +36,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
-  const loadProjects = () => {
-    const list = storageService.getProjects(currentUser.id);
+  const loadProjects = async () => {
+    const list = await storageService.getProjects(currentUser.id);
     setProjects(list);
   };
 
@@ -45,11 +45,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
     loadProjects();
   }, [currentUser]);
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
 
-    const proj = storageService.createProject(
+    const proj = await storageService.createProject(
       currentUser.id,
       newProjectName,
       newProjectDesc
@@ -63,19 +63,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
     onSelectProject(proj.id);
   };
 
-  const handleRenameProject = (e: React.FormEvent) => {
+  const handleRenameProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject || !editName.trim()) return;
 
-    storageService.renameProject(editingProject.id, editName, editDesc);
+    await storageService.renameProject(editingProject.id, editName, editDesc);
     setEditingProject(null);
     loadProjects();
   };
 
-  const handleDeleteProject = (projectId: string, name: string, e: React.MouseEvent) => {
+  const handleDeleteProject = async (projectId: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Avoid opening the project workspace card
     if (window.confirm(`Are you sure you want to delete "${name}"? This will permanently wipe all mapping layout and custom annotations.`)) {
-      storageService.deleteProject(projectId);
+      await storageService.deleteProject(projectId);
       loadProjects();
     }
   };
