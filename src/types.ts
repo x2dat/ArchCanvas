@@ -12,6 +12,7 @@ export interface CodeNode {
   description: string;
   layer: LayerType;
   size: number; // in bytes
+  content?: string; // file content cache for import scanning
 }
 
 export interface NodeConnection {

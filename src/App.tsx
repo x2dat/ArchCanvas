@@ -20,6 +20,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [importWarning, setImportWarning] = useState<string | null>(null);
+  const [historyBackup, setHistoryBackup] = useState<{ nodes: CodeNode[], connections: NodeConnection[] } | null>(null);
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
@@ -190,7 +191,8 @@ export default function App() {
         y,
         description: '',
         layer: classifyLayer(file.path),
-        size: file.size || 0
+        size: file.size || 0,
+        content: file.content
       });
     });
 
@@ -281,11 +283,25 @@ export default function App() {
 
           if (entry.kind === 'file') {
             const file = await entry.getFile();
+            let fileContent = '';
+            
+            // Read source text files under 150KB for import scanning
+            const ext = entry.name.split('.').pop()?.toLowerCase();
+            const textExtensions = ['js', 'jsx', 'ts', 'tsx', 'css', 'scss', 'html', 'json', 'py', 'rs', 'go', 'java', 'cpp', 'h'];
+            if (file.size < 150 * 1024 && textExtensions.includes(ext || '')) {
+              try {
+                fileContent = await file.text();
+              } catch (err) {
+                console.warn('Failed to read file text', path, err);
+              }
+            }
+
             flatItems.push({
               name: entry.name,
               path,
               type: 'file',
-              size: file.size
+              size: file.size,
+              content: fileContent
             });
           } else if (entry.kind === 'directory') {
             flatItems.push({
@@ -422,6 +438,172 @@ export default function App() {
     }
   };
 
+  // 10.5 Path Resolver and Dependency Linker Methods
+  const resolveRelativePath = (currentPath: string, importPath: string): string => {
+    let cleanImport = importPath.replace(/^[@~]\//, '');
+    const currentDirParts = currentPath.split('/').slice(0, -1);
+    const importParts = cleanImport.split('/');
+    
+    for (const part of importParts) {
+      if (part === '.' || part === '') {
+        continue;
+      }
+      if (part === '..') {
+        currentDirParts.pop();
+      } else {
+        currentDirParts.push(part);
+      }
+    }
+    
+    return currentDirParts.join('/');
+  };
+
+  const handleAutoLinkDependencies = () => {
+    if (nodes.length === 0) return;
+
+    // Backup current state for Undo
+    setHistoryBackup({ nodes, connections });
+
+    const newConnections: NodeConnection[] = [];
+    const connectionKeys = new Set<string>();
+
+    const addConnection = (fromId: string, toId: string) => {
+      const key = `${fromId}->${toId}`;
+      if (fromId !== toId && !connectionKeys.has(key)) {
+        connectionKeys.add(key);
+        newConnections.push({
+          id: Math.random().toString(36).substring(2, 9),
+          fromNodeId: fromId,
+          toNodeId: toId,
+          label: ''
+        });
+      }
+    };
+
+    const pathNodeMap: Record<string, CodeNode> = {};
+    const baseNodeMap: Record<string, CodeNode> = {};
+
+    nodes.forEach(node => {
+      pathNodeMap[node.path.toLowerCase()] = node;
+      
+      const lastSlash = node.path.lastIndexOf('/');
+      const baseName = lastSlash !== -1 ? node.path.substring(lastSlash + 1) : node.path;
+      const dotIndex = baseName.lastIndexOf('.');
+      const cleanName = dotIndex !== -1 ? baseName.substring(0, dotIndex) : baseName;
+      const pathDir = lastSlash !== -1 ? node.path.substring(0, lastSlash) : '';
+      const lookupKey = `${pathDir}/${cleanName}`.toLowerCase().replace(/^\//, '');
+      baseNodeMap[lookupKey] = node;
+    });
+
+    nodes.forEach(node => {
+      // 1. Static Content Scanner (Local imports)
+      if (node.type === 'file' && node.content) {
+        const lines = node.content.split('\n');
+        const jsImportRegex = /(?:import|require|from)\s*\(?\s*['"](\.[^'"]+)['"]/g;
+        const cssImportRegex = /(?:@import|url)\s*\(?\s*['"](\.[^'"]+)['"]/g;
+
+        const ext = node.name.split('.').pop()?.toLowerCase();
+
+        lines.forEach(line => {
+          let matches;
+          if (ext === 'js' || ext === 'jsx' || ext === 'ts' || ext === 'tsx') {
+            while ((matches = jsImportRegex.exec(line)) !== null) {
+              const relPath = matches[1];
+              const resolved = resolveRelativePath(node.path, relPath);
+              const targetNode = baseNodeMap[resolved.toLowerCase()] || pathNodeMap[resolved.toLowerCase()];
+              if (targetNode) {
+                addConnection(node.id, targetNode.id);
+              }
+            }
+          } else if (ext === 'css' || ext === 'scss') {
+            while ((matches = cssImportRegex.exec(line)) !== null) {
+              const relPath = matches[1];
+              const resolved = resolveRelativePath(node.path, relPath);
+              const targetNode = pathNodeMap[resolved.toLowerCase()] || baseNodeMap[resolved.toLowerCase()];
+              if (targetNode) {
+                addConnection(node.id, targetNode.id);
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Sibling Pairing Heuristic (matching files like Button.tsx <-> Button.css)
+      if (node.type === 'file') {
+        const lastSlash = node.path.lastIndexOf('/');
+        const baseName = lastSlash !== -1 ? node.path.substring(lastSlash + 1) : node.path;
+        const dotIndex = baseName.lastIndexOf('.');
+        const cleanName = dotIndex !== -1 ? baseName.substring(0, dotIndex) : baseName;
+        const parentDir = lastSlash !== -1 ? node.path.substring(0, lastSlash) : '';
+
+        nodes.forEach(sibling => {
+          if (sibling.id !== node.id && sibling.type === 'file') {
+            const sibSlash = sibling.path.lastIndexOf('/');
+            const sibParent = sibSlash !== -1 ? sibling.path.substring(0, sibSlash) : '';
+            if (sibParent === parentDir) {
+              const sibBase = sibSlash !== -1 ? sibling.path.substring(sibSlash + 1) : sibling.path;
+              const sibDot = sibBase.lastIndexOf('.');
+              const sibCleanName = sibDot !== -1 ? sibBase.substring(0, sibDot) : sibBase;
+              if (sibCleanName === cleanName) {
+                const ext = baseName.split('.').pop()?.toLowerCase();
+                const sibExt = sibBase.split('.').pop()?.toLowerCase();
+                if ((ext === 'css' || ext === 'scss') && (sibExt === 'js' || sibExt === 'jsx' || sibExt === 'ts' || sibExt === 'tsx')) {
+                  addConnection(sibling.id, node.id);
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Folder structural links
+      if (node.type === 'file') {
+        const pathParts = node.path.split('/');
+        const parentPath = pathParts.slice(0, -1).join('/');
+        const parentNode = nodes.find(n => n.type === 'directory' && n.path === parentPath);
+        if (parentNode) {
+          addConnection(parentNode.id, node.id);
+        }
+      } else if (node.type === 'directory') {
+        const pathParts = node.path.split('/');
+        if (pathParts.length > 1) {
+          const parentPath = pathParts.slice(0, -1).join('/');
+          const parentNode = nodes.find(n => n.type === 'directory' && n.path === parentPath);
+          if (parentNode) {
+            addConnection(parentNode.id, node.id);
+          }
+        }
+      }
+    });
+
+    if (newConnections.length === 0) {
+      alert('Dependency scanner complete! No relative import paths or sibling resources found to auto-link.');
+      return;
+    }
+
+    const mergedConns = [...connections];
+    newConnections.forEach(nc => {
+      if (!mergedConns.some(c => c.fromNodeId === nc.fromNodeId && c.toNodeId === nc.toNodeId)) {
+        mergedConns.push(nc);
+      }
+    });
+
+    saveState(nodes, mergedConns);
+    setNodes(nodes);
+    setConnections(mergedConns);
+    setImportWarning(
+      `Auto-linked ${newConnections.length} dependencies! You can cancel these changes using the [Undo] button in the toolbar.`
+    );
+  };
+
+  const handleUndoAutoLink = () => {
+    if (historyBackup) {
+      saveState(historyBackup.nodes, historyBackup.connections);
+      setHistoryBackup(null);
+      setImportWarning('Cancelled dependency linking: Restored previous map and connections.');
+    }
+  };
+
   // 11. Markdown GFM + Mermaid Compiler Builder
   const handleExportMarkdown = (): string => {
     const totalFiles = nodes.filter(n => n.type === 'file').length;
@@ -524,6 +706,9 @@ export default function App() {
         onImportLocalDirectory={handleImportLocalDirectory}
         onClearCanvas={handleClearCanvas}
         onAutoLayout={handleAutoLayout}
+        onAutoLink={handleAutoLinkDependencies}
+        onUndo={handleUndoAutoLink}
+        canUndo={!!historyBackup}
         onZoomIn={() => setCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
         onZoomOut={() => setCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
         onZoomReset={() => setCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
