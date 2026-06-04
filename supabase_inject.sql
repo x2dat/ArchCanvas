@@ -48,3 +48,26 @@ create policy "Users manage own project data" on public.project_data for all usi
     and public.projects.user_id = auth.uid()
   )
 );
+
+-- 8. Setup background replication automation triggers
+-- This guarantees profile rows exist to prevent foreign key race conditions during instant signup paths.
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, name, updated_at)
+  values (
+    new.id, 
+    new.email, 
+    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)), 
+    now()
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Bind the trigger function to the core auth event listener layer
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
