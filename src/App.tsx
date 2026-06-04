@@ -3,6 +3,10 @@ import { Layers } from 'lucide-react';
 import { Toolbar } from './components/Toolbar';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { DetailsPanel } from './components/DetailsPanel';
+import { AuthScreen } from './components/AuthScreen';
+import { Dashboard } from './components/Dashboard';
+import { storageService } from './services/storage';
+import type { User } from './services/storage';
 import type { CodeNode, NodeConnection, CanvasState, LayerType } from './types';
 import './App.css';
 
@@ -13,6 +17,8 @@ const DEFAULT_CANVAS_STATE: CanvasState = {
 };
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<CodeNode[]>([]);
   const [connections, setConnections] = useState<NodeConnection[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -29,30 +35,51 @@ export default function App() {
     }
   };
 
-  // Load saved canvas structures on mount
+  // Load user session on mount
   useEffect(() => {
-    try {
-      const savedNodes = localStorage.getItem('ac_nodes');
-      const savedConns = localStorage.getItem('ac_connections');
-      const savedState = localStorage.getItem('ac_state');
-
-      if (savedNodes) setNodes(JSON.parse(savedNodes));
-      if (savedConns) {
-        const connsList = JSON.parse(savedConns) as NodeConnection[];
-        setConnections(connsList.filter(c => c.fromNodeId !== c.toNodeId));
-      }
-      if (savedState) setCanvasState(JSON.parse(savedState));
-    } catch (e) {
-      console.error('Failed to load canvas state', e);
+    const sessionUser = storageService.getCurrentUser();
+    if (sessionUser) {
+      setCurrentUser(sessionUser);
     }
   }, []);
 
-  const saveState = (newNodes: CodeNode[], newConns: NodeConnection[]) => {
+  // Load project map data whenever activeProjectId changes
+  useEffect(() => {
+    if (!activeProjectId) {
+      setNodes([]);
+      setConnections([]);
+      setCanvasState(DEFAULT_CANVAS_STATE);
+      setSelectedNodeId(null);
+      return;
+    }
+    const data = storageService.getProjectData(activeProjectId);
+    if (data) {
+      setNodes(data.nodes);
+      setConnections(data.connections);
+      setCanvasState(data.canvasState);
+    }
+  }, [activeProjectId]);
+
+  const handleUpdateCanvasState = (updater: CanvasState | ((prev: CanvasState) => CanvasState)) => {
+    setCanvasState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (activeProjectId) {
+        storageService.saveProjectData(activeProjectId, nodes, connections, next);
+      }
+      return next;
+    });
+  };
+
+  const saveState = (newNodes: CodeNode[], newConns: NodeConnection[], newCanvasState?: CanvasState) => {
     const cleanConns = newConns.filter(c => c.fromNodeId !== c.toNodeId);
     setNodes(newNodes);
     setConnections(cleanConns);
-    localStorage.setItem('ac_nodes', JSON.stringify(newNodes));
-    localStorage.setItem('ac_connections', JSON.stringify(cleanConns));
+    if (newCanvasState) {
+      setCanvasState(newCanvasState);
+    }
+    if (activeProjectId) {
+      storageService.saveProjectData(activeProjectId, newNodes, cleanConns, newCanvasState || canvasState);
+    }
   };
 
   // Helper to filter out assets, dependencies, and build configurations
@@ -663,6 +690,33 @@ export default function App() {
     return md;
   };
 
+  const handleLogout = () => {
+    storageService.logoutUser();
+    setCurrentUser(null);
+    setActiveProjectId(null);
+  };
+
+  const handleExitProject = () => {
+    if (activeProjectId) {
+      storageService.saveProjectData(activeProjectId, nodes, connections, canvasState);
+    }
+    setActiveProjectId(null);
+  };
+
+  if (!currentUser) {
+    return <AuthScreen onAuthSuccess={(user) => setCurrentUser(user)} />;
+  }
+
+  if (!activeProjectId) {
+    return (
+      <Dashboard 
+        currentUser={currentUser} 
+        onSelectProject={(id) => setActiveProjectId(id)} 
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       {importWarning && (
@@ -712,11 +766,12 @@ export default function App() {
         onImportLocalDirectory={handleImportLocalDirectory}
         onAutoLayout={handleAutoLayout}
         onAutoLink={handleAutoLinkDependencies}
-        onZoomIn={() => setCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
-        onZoomOut={() => setCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
-        onZoomReset={() => setCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
+        onZoomIn={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
+        onZoomOut={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
+        onZoomReset={() => handleUpdateCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
         scale={canvasState.scale}
         isLoading={isLoading}
+        onExitProject={handleExitProject}
       />
 
       {/* Main Drag-Pan Canvas Port */}
@@ -728,7 +783,7 @@ export default function App() {
         onNodeDrag={handleNodeDrag}
         onConnectEnd={handleConnectEnd}
         canvasState={canvasState}
-        setCanvasState={setCanvasState}
+        setCanvasState={handleUpdateCanvasState}
       />
 
       {/* Floating Toggle Button on the side */}
@@ -756,7 +811,7 @@ export default function App() {
           isLoading={isLoading}
           onImportJson={(newNodes, newConns) => {
             saveState(newNodes, newConns);
-            setCanvasState(DEFAULT_CANVAS_STATE);
+            handleUpdateCanvasState(DEFAULT_CANVAS_STATE);
             setSelectedNodeId(null);
             setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
           }}

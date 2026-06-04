@@ -7,7 +7,8 @@ import {
   ZoomOut, 
   Sparkles,
   Loader,
-  Link2
+  Link2,
+  Home
 } from 'lucide-react';
 
 const Github: React.FC<{ size?: number; className?: string }> = ({ size = 16, className }) => (
@@ -36,6 +37,7 @@ interface ToolbarProps {
   onZoomReset: () => void;
   scale: number;
   isLoading: boolean;
+  onExitProject?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -47,7 +49,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onZoomOut,
   onZoomReset,
   scale,
-  isLoading
+  isLoading,
+  onExitProject
 }) => {
   const [githubUrl, setGithubUrl] = useState('');
 
@@ -66,6 +69,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   return (
     <div className="toolbar-panel glass-plate">
+      {onExitProject && (
+        <>
+          <button 
+            type="button"
+            className="exit-project-btn" 
+            onClick={onExitProject}
+            title="Return to Projects Dashboard"
+          >
+            <Home size={14} />
+            <span>Dashboard</span>
+          </button>
+          <div className="toolbar-divider"></div>
+        </>
+      )}
+
       <div className="toolbar-logo">
         <div className="logo-glow">C</div>
         <h1>ArchCanvas</h1>
