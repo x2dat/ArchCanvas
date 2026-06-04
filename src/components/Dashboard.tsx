@@ -16,24 +16,16 @@ import {
 } from 'lucide-react';
 import { storageService } from '../services/storage';
 import type { Project, User } from '../services/storage';
+import { CustomModal } from './CustomModal';
 
 interface DashboardProps {
   currentUser: User;
   onSelectProject: (projectId: string) => void;
   onLogout: () => void;
   onUpdateProfile: (updates: { name: string; password?: string }) => Promise<void>;
-  showAlert?: (title: string, message: string) => void;
-  showConfirm?: (title: string, message: string, onConfirm: () => void, isDestructive?: boolean, confirmText?: string, cancelText?: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
-  currentUser, 
-  onSelectProject, 
-  onLogout, 
-  onUpdateProfile,
-  showAlert,
-  showConfirm
-}) => {
+export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProject, onLogout, onUpdateProfile }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -51,6 +43,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm' | 'danger';
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'alert',
+    onConfirm: () => {}
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModalState({
+      isOpen: true,
+      title,
+      message,
+      type: 'alert',
+      onConfirm: () => setModalState(prev => ({ ...prev, isOpen: false }))
+    });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, isDestructive = false, confirmText = 'Confirm', cancelText = 'Cancel') => {
+    setModalState({
+      isOpen: true,
+      title,
+      message,
+      type: isDestructive ? 'danger' : 'confirm',
+      confirmText,
+      cancelText,
+      onConfirm: () => {
+        onConfirm();
+        setModalState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   useEffect(() => {
     setProfileName(currentUser.name);
@@ -144,8 +177,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
     e.stopPropagation(); // Avoid opening the project workspace card
     
     const deleteAction = async () => {
-      await storageService.deleteProject(projectId);
-      loadProjects();
+      // Optimistic UI update: instantly remove project from view list
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      try {
+        await storageService.deleteProject(projectId);
+        // Background refresh to keep state synchronized
+        const list = await storageService.getProjects(currentUser.id);
+        setProjects(list);
+      } catch (err: any) {
+        // Rollback to database list state if request fails
+        const list = await storageService.getProjects(currentUser.id);
+        setProjects(list);
+        if (showAlert) {
+          showAlert('Delete Failed', `Could not delete project: ${err.message}`);
+        } else {
+          alert(`Could not delete project: ${err.message}`);
+        }
+      }
     };
 
     if (showConfirm) {
@@ -583,6 +631,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+
+      <CustomModal 
+        isOpen={modalState.isOpen}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        onConfirm={modalState.onConfirm}
+        onCancel={() => setModalState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

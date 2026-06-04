@@ -827,8 +827,6 @@ export default function App() {
         onSelectProject={(id) => setActiveProjectId(id)} 
         onLogout={handleLogout}
         onUpdateProfile={handleUpdateProfile}
-        showAlert={showAlert}
-        showConfirm={showConfirm}
       />
     );
   }
