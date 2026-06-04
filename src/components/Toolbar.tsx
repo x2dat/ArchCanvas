@@ -30,7 +30,6 @@ const Github: React.FC<{ size?: number; className?: string }> = ({ size = 16, cl
 interface ToolbarProps {
   onImportGitHub: (url: string) => void;
   onImportLocalDirectory: () => void;
-  onClearCanvas: () => void;
   onAutoLayout: () => void;
   onAutoLink: () => void;
   onUndo: () => void;
@@ -45,7 +44,6 @@ interface ToolbarProps {
 export const Toolbar: React.FC<ToolbarProps> = ({
   onImportGitHub,
   onImportLocalDirectory,
-  onClearCanvas,
   onAutoLayout,
   onAutoLink,
   onUndo,
@@ -57,6 +55,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isLoading
 }) => {
   const [githubUrl, setGithubUrl] = useState('');
+
+  const handleClearClick = () => {
+    alert("To delete connections, clear layers, or manage your workspace map, please open the 'Project Overview' panel (bottom-right button) and use the 'Developer Toolkit' menu.");
+  };
 
   const handleGitHubSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +143,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         )}
         <button 
-          onClick={onClearCanvas} 
+          onClick={handleClearClick} 
           title="Wipe canvas clean"
           className="utility-btn danger"
           disabled={isLoading}

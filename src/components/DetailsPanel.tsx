@@ -30,6 +30,7 @@ interface DetailsPanelProps {
   onClearAllConnections: () => void;
   onClearAllLayers: () => void;
   onAutoClassifyAllLayers: () => void;
+  onClearCanvas: () => void;
 }
 
 export const DetailsPanel: React.FC<DetailsPanelProps> = ({
@@ -44,7 +45,8 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   onImportJson,
   onClearAllConnections,
   onClearAllLayers,
-  onAutoClassifyAllLayers
+  onAutoClassifyAllLayers,
+  onClearCanvas
 }) => {
   const [copied, setCopied] = useState(false);
   const [isToolkitOpen, setIsToolkitOpen] = useState(false);
@@ -385,6 +387,19 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
                       <div className="item-text">
                         <span className="item-title">Clear All Layers</span>
                         <span className="item-desc">Reset all cards to General</span>
+                      </div>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => { onClearCanvas(); setIsToolkitOpen(false); }}
+                      className="toolkit-item danger"
+                      disabled={nodes.length === 0}
+                      title="Wipe canvas completely clean"
+                    >
+                      <Trash2 size={13} />
+                      <div className="item-text">
+                        <span className="item-title">Clear Map (Wipe)</span>
+                        <span className="item-desc">Wipe all nodes and connections</span>
                       </div>
                     </button>
                   </div>

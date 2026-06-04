@@ -704,7 +704,6 @@ export default function App() {
       <Toolbar 
         onImportGitHub={handleImportGitHub}
         onImportLocalDirectory={handleImportLocalDirectory}
-        onClearCanvas={handleClearCanvas}
         onAutoLayout={handleAutoLayout}
         onAutoLink={handleAutoLinkDependencies}
         onUndo={handleUndoAutoLink}
@@ -774,6 +773,7 @@ export default function App() {
               saveState(updated, connections);
             }
           }}
+          onClearCanvas={handleClearCanvas}
         />
       </div>
     </div>
