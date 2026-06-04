@@ -1840,3 +1840,21 @@
     transform-origin: top center;
   }
 }
+
+/* User Profile Modal Sections styling */
+.modal-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+  opacity: 0.6;
+}
+
+.modal-section-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent-purple);
+  margin-top: 4px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

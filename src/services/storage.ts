@@ -348,13 +348,18 @@ export const storageService = {
     };
   },
 
-  updateProfile: async (userId: string, updates: { name: string }): Promise<User> => {
+  updateProfile: async (userId: string, updates: { name: string; password?: string }): Promise<User> => {
     const client = getSupabaseClient();
     const newName = updates.name.trim() || 'Developer';
 
-    const { data: authUser, error: authError } = await client.auth.updateUser({
+    const updateParams: any = {
       data: { name: newName }
-    });
+    };
+    if (updates.password) {
+      updateParams.password = updates.password;
+    }
+
+    const { data: authUser, error: authError } = await client.auth.updateUser(updateParams);
 
     if (authError) throw new Error(authError.message);
     if (!authUser.user) throw new Error('User not authenticated.');

@@ -21,7 +21,7 @@ interface DashboardProps {
   currentUser: User;
   onSelectProject: (projectId: string) => void;
   onLogout: () => void;
-  onUpdateProfile: (updates: { name: string }) => Promise<void>;
+  onUpdateProfile: (updates: { name: string; password?: string }) => Promise<void>;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProject, onLogout, onUpdateProfile }) => {
@@ -39,6 +39,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileName, setProfileName] = useState(currentUser.name);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
@@ -81,14 +83,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
     loadProjects();
   };
 
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setProfileName(currentUser.name);
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileName.trim() || isSavingProfile) return;
 
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        alert('Passwords do not match.');
+        return;
+      }
+    }
+
     setIsSavingProfile(true);
     try {
-      await onUpdateProfile({ name: profileName });
-      setIsProfileModalOpen(false);
+      await onUpdateProfile({ 
+        name: profileName, 
+        password: newPassword || undefined 
+      });
+      closeProfileModal();
     } catch (err: any) {
       alert(`Error updating profile: ${err.message}`);
     } finally {
@@ -445,7 +468,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
               <button 
                 type="button" 
                 className="close-modal-btn" 
-                onClick={() => setIsProfileModalOpen(false)}
+                onClick={closeProfileModal}
               >
                 <X size={16} />
               </button>
@@ -475,11 +498,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
                 />
               </div>
 
+              <div className="modal-section-divider"></div>
+              <div className="modal-section-title">Change Password (Optional)</div>
+
+              <div className="form-group-field">
+                <label htmlFor="profile-password-input">New Password</label>
+                <input 
+                  id="profile-password-input"
+                  type="password" 
+                  placeholder="Min 6 characters..."
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                />
+              </div>
+
+              <div className="form-group-field">
+                <label htmlFor="profile-confirm-password-input">Confirm New Password</label>
+                <input 
+                  id="profile-confirm-password-input"
+                  type="password" 
+                  placeholder="Repeat new password..."
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={6}
+                />
+              </div>
+
               <div className="modal-actions-footer">
                 <button 
                   type="button" 
                   className="secondary-btn" 
-                  onClick={() => setIsProfileModalOpen(false)}
+                  onClick={closeProfileModal}
                   disabled={isSavingProfile}
                 >
                   Cancel

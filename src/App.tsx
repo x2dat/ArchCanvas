@@ -706,7 +706,7 @@ export default function App() {
     setActiveProjectId(null);
   };
 
-  const handleUpdateProfile = async (updates: { name: string }) => {
+  const handleUpdateProfile = async (updates: { name: string; password?: string }) => {
     if (!currentUser) return;
     const updatedUser = await storageService.updateProfile(currentUser.id, updates);
     setCurrentUser(updatedUser);
