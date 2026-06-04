@@ -10,7 +10,7 @@
 <br />
 
 **ArchCanvas** is a browser-native visual workspace designed to map folder hierarchies, annotate files, draw module data flows, and generate styled documentation. Instead of maintaining static drawings, ArchCanvas connects directly to your codebase, letting you lay out structure visually and compile a clean `.github/ARCHITECTURE.md` file (complete with interactive Mermaid diagrams) for your repository. <br> <hr>
-Check it out: <a href="https://x2dat.github.io/architecture-canvas/" target="_blank" rel="noopener noreferrer">https://x2dat.github.io/architecture-canvas/</a>
+Check it out: <a href="https://x2dat.github.io/ArchCanvas/" target="_blank" rel="noopener noreferrer">https://x2dat.github.io/ArchCanvas/</a>
 
 ---
 
