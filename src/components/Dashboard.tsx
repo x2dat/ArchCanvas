@@ -21,9 +21,10 @@ interface DashboardProps {
   currentUser: User;
   onSelectProject: (projectId: string) => void;
   onLogout: () => void;
+  onUpdateProfile: (updates: { name: string }) => Promise<void>;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProject, onLogout }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProject, onLogout, onUpdateProfile }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -35,6 +36,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState(currentUser.name);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  useEffect(() => {
+    setProfileName(currentUser.name);
+  }, [currentUser]);
 
   const loadProjects = async () => {
     const list = await storageService.getProjects(currentUser.id);
@@ -70,6 +79,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
     await storageService.renameProject(editingProject.id, editName, editDesc);
     setEditingProject(null);
     loadProjects();
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileName.trim() || isSavingProfile) return;
+
+    setIsSavingProfile(true);
+    try {
+      await onUpdateProfile({ name: profileName });
+      setIsProfileModalOpen(false);
+    } catch (err: any) {
+      alert(`Error updating profile: ${err.message}`);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleDeleteProject = async (projectId: string, name: string, e: React.MouseEvent) => {
@@ -120,7 +144,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
         </div>
 
         <div className="nav-profile">
-          <div className="user-info">
+          <div 
+            className="user-info" 
+            onClick={() => setIsProfileModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+            title="Edit User Profile Settings"
+          >
             <UserIcon size={14} className="user-icon" />
             <span>{currentUser.name}</span>
           </div>
@@ -400,6 +429,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentUser, onSelectProje
                   disabled={!editName.trim()}
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PROFILE DIALOG MODAL */}
+      {isProfileModalOpen && (
+        <div className="modal-overlay-backdrop">
+          <div className="modal-content-panel glass-plate animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit User Profile Settings</h3>
+              <button 
+                type="button" 
+                className="close-modal-btn" 
+                onClick={() => setIsProfileModalOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveProfile} className="modal-form">
+              <div className="form-group-field">
+                <label>Email Address</label>
+                <input 
+                  type="email" 
+                  value={currentUser.email}
+                  disabled
+                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                />
+              </div>
+
+              <div className="form-group-field">
+                <label htmlFor="profile-name-input">Full Name</label>
+                <input 
+                  id="profile-name-input"
+                  type="text" 
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  maxLength={50}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="modal-actions-footer">
+                <button 
+                  type="button" 
+                  className="secondary-btn" 
+                  onClick={() => setIsProfileModalOpen(false)}
+                  disabled={isSavingProfile}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="confirm-btn"
+                  disabled={!profileName.trim() || isSavingProfile}
+                >
+                  {isSavingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
               </div>
             </form>

@@ -702,6 +702,12 @@ export default function App() {
     setActiveProjectId(null);
   };
 
+  const handleUpdateProfile = async (updates: { name: string }) => {
+    if (!currentUser) return;
+    const updatedUser = await storageService.updateProfile(currentUser.id, updates);
+    setCurrentUser(updatedUser);
+  };
+
   const handleExitProject = () => {
     if (activeProjectId) {
       storageService.saveProjectData(activeProjectId, nodes, connections, canvasState);
@@ -719,6 +725,7 @@ export default function App() {
         currentUser={currentUser} 
         onSelectProject={(id) => setActiveProjectId(id)} 
         onLogout={handleLogout}
+        onUpdateProfile={handleUpdateProfile}
       />
     );
   }

@@ -444,5 +444,56 @@ export const storageService = {
 
     setLocalStorageItem(STORAGE_KEYS.PROJECTS, projects);
     return projects[projectIndex];
+  },
+
+  updateProfile: async (userId: string, updates: { name: string }): Promise<User> => {
+    const newName = updates.name.trim() || 'Developer';
+
+    // 1. Supabase Mode
+    if (supabase) {
+      const { data: authUser, error: authError } = await supabase.auth.updateUser({
+        data: { name: newName }
+      });
+
+      if (authError) throw new Error(authError.message);
+      if (!authUser.user) throw new Error('User not authenticated.');
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: newName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (profileError) throw new Error(profileError.message);
+
+      return {
+        id: userId,
+        email: authUser.user.email || '',
+        name: newName
+      };
+    }
+
+    // 2. Local Fallback Mode
+    const users = getLocalStorageItem<User[]>(STORAGE_KEYS.USERS, []);
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex !== -1) {
+      users[userIndex].name = newName;
+      setLocalStorageItem(STORAGE_KEYS.USERS, users);
+    }
+
+    const sessionUser = getLocalStorageItem<User | null>(STORAGE_KEYS.CURRENT_SESSION, null);
+    if (sessionUser && sessionUser.id === userId) {
+      sessionUser.name = newName;
+      setLocalStorageItem(STORAGE_KEYS.CURRENT_SESSION, sessionUser);
+    }
+
+    return {
+      id: userId,
+      email: sessionUser?.email || '',
+      name: newName
+    };
   }
 };
