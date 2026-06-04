@@ -41,23 +41,32 @@ Here is how the **ArchCanvas** codebase is structured and coordinates data flows
 
 ```mermaid
 graph TD
-  node_app["📁 App.tsx (State Coordinator)"]
+  node_main("📄 main.tsx (Entry Point)")
+  node_app("📄 App.tsx (State Coordinator)")
   node_types("📄 types.ts (Models & States)")
-  node_toolbar("📄 Toolbar.tsx (Control Bar)")
-  node_canvas["📁 CanvasWorkspace.tsx (2D Viewport)"]
-  node_card("📄 NodeCard.tsx (Component Cards)")
-  node_details["📁 DetailsPanel.tsx (Sidebar Editor)"]
+  node_app_css("📄 App.css (Glassmorphic Theme)")
+  node_index_css("📄 index.css (Design System Tokens)")
+  node_toolbar("📄 Toolbar.tsx (Floating Control Dock)")
+  node_canvas("📄 CanvasWorkspace.tsx (2D Viewport)")
+  node_card("📄 NodeCard.tsx (Interactive Cards)")
+  node_details("📄 DetailsPanel.tsx (Sidebar Editor & Dev Toolkit)")
 
+  node_main --> node_app
+  node_main --> node_index_css
+  node_app --> node_app_css
   node_app --> node_types
   node_app --> node_toolbar
   node_app --> node_canvas
   node_app --> node_details
   node_canvas --> node_card
+  node_canvas --> node_types
   node_card --> node_types
   node_details --> node_types
 ```
-<a href="https://github.com/x2dat/ArchCanvas">
-    <img src="https://img.shields.io/badge/Generated\_with-ArchCanvas-8b5cf6?style=for-the-badge" alt="Generated with ArchCanvas" />
+
+<p align="center">
+  <a href="https://github.com/x2dat/ArchCanvas">
+    <img src="https://img.shields.io/badge/Generated_with-ArchCanvas-8b5cf6?style=for-the-badge" alt="Generated with ArchCanvas" />
   </a>
 </p>
 
