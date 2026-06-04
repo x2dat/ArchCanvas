@@ -11,16 +11,16 @@ import type { CodeNode, LayerType } from '../types';
 interface NodeCardProps {
   node: CodeNode;
   isSelected: boolean;
-  onClick: (e: React.MouseEvent) => void;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onSelect: (nodeId: string) => void;
+  onDragStart: (e: React.MouseEvent, nodeId: string) => void;
   onConnectStart: (e: React.MouseEvent, nodeId: string) => void;
 }
 
-export const NodeCard: React.FC<NodeCardProps> = ({
+export const NodeCard: React.FC<NodeCardProps> = React.memo(({
   node,
   isSelected,
-  onClick,
-  onMouseDown,
+  onSelect,
+  onDragStart,
   onConnectStart
 }) => {
   const getFileIcon = () => {
@@ -66,14 +66,27 @@ export const NodeCard: React.FC<NodeCardProps> = ({
 
   const isDir = node.type === 'directory';
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect(node.id);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    onDragStart(e, node.id);
+  };
+
+  const handleConnectMouseDown = (e: React.MouseEvent) => {
+    onConnectStart(e, node.id);
+  };
+
   return (
     <div 
       className={`node-card glass-plate ${isDir ? 'directory-node' : 'file-node'} ${isSelected ? 'selected-card' : ''}`}
       style={{
         transform: `translate3d(${node.x}px, ${node.y}px, 0)`
       }}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
     >
       {/* Input connector anchor socket */}
       <div className="card-anchor anchor-left" title="Input Dependency"></div>
@@ -98,10 +111,10 @@ export const NodeCard: React.FC<NodeCardProps> = ({
       <div 
         className="card-anchor anchor-right" 
         title="Draw Dependency Link"
-        onMouseDown={(e) => onConnectStart(e, node.id)}
+        onMouseDown={handleConnectMouseDown}
       >
         <div className="anchor-pulse-dot"></div>
       </div>
     </div>
   );
-};
+});

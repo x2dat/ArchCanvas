@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { CanvasState, CodeNode, NodeConnection } from '../types';
 import { NodeCard } from './NodeCard';
 
@@ -33,6 +33,12 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
   const [connectTargetId, setConnectTargetId] = useState<string | null>(null);
   const [tempLineEnd, setTempLineEnd] = useState({ x: 0, y: 0 });
+
+  // Keep a stable ref to nodes so event callbacks do not rebuild on every node layout drag
+  const nodesRef = useRef(nodes);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   const { panX, panY, scale } = canvasState;
 
@@ -92,14 +98,18 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
     }
   };
 
-  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+  const handleNodeClick = useCallback((nodeId: string) => {
+    onSelectNode(nodeId);
+  }, [onSelectNode]);
+
+  const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     onSelectNode(nodeId);
     
     // Don't drag if anchor click
     if ((e.target as HTMLElement).classList.contains('card-anchor')) return;
 
-    const targetNode = nodes.find(n => n.id === nodeId);
+    const targetNode = nodesRef.current.find(n => n.id === nodeId);
     if (!targetNode) return;
 
     setDragNodeId(nodeId);
@@ -107,14 +117,14 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
       x: e.clientX - targetNode.x * scale,
       y: e.clientY - targetNode.y * scale
     });
-  };
+  }, [onSelectNode, scale]);
 
-  const handleConnectStart = (e: React.MouseEvent, nodeId: string) => {
+  const handleConnectStart = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     e.preventDefault();
     setConnectFromId(nodeId);
     
-    const sourceNode = nodes.find(n => n.id === nodeId);
+    const sourceNode = nodesRef.current.find(n => n.id === nodeId);
     if (sourceNode) {
       // Anchors are on the right side center of card
       setTempLineEnd({
@@ -122,7 +132,7 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
         y: sourceNode.y + CARD_HEIGHT / 2
       });
     }
-  };
+  }, []);
 
   // 3. Mouse Move Handler
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -274,11 +284,8 @@ export const CanvasWorkspace: React.FC<CanvasWorkspaceProps> = ({
             key={node.id}
             node={node}
             isSelected={node.id === selectedNodeId}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectNode(node.id);
-            }}
-            onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+            onSelect={handleNodeClick}
+            onDragStart={handleNodeMouseDown}
             onConnectStart={handleConnectStart}
           />
         ))}

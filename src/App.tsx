@@ -19,6 +19,7 @@ export default function App() {
   const [canvasState, setCanvasState] = useState<CanvasState>(DEFAULT_CANVAS_STATE);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [importWarning, setImportWarning] = useState<string | null>(null);
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
@@ -49,6 +50,48 @@ export default function App() {
     localStorage.setItem('ac_connections', JSON.stringify(newConns));
   };
 
+  // Helper to filter out assets, dependencies, and build configurations
+  const shouldIncludePath = (path: string, type: 'file' | 'directory'): boolean => {
+    const lower = path.toLowerCase();
+    const parts = lower.split('/');
+    const ignoredDirs = ['node_modules', '.git', 'dist', 'build', 'out', 'target', 'coverage', '.next', '.nuxt', 'vendor', '.cache', 'tmp'];
+    
+    if (parts.some(part => ignoredDirs.includes(part))) {
+      return false;
+    }
+
+    const ignoredFiles = [
+      'package-lock.json',
+      'yarn.lock',
+      'pnpm-lock.yaml',
+      'cargo.lock',
+      'composer.lock',
+      '.ds_store',
+      'thumbs.db'
+    ];
+    const fileName = path.split('/').pop() || '';
+    if (ignoredFiles.includes(fileName.toLowerCase())) {
+      return false;
+    }
+
+    if (type === 'file') {
+      const ignoredExtensions = [
+        'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'webp',
+        'woff', 'woff2', 'ttf', 'eot',
+        'mp4', 'webm', 'mov', 'avi', 'mp3', 'wav',
+        'pdf', 'zip', 'tar', 'gz', 'rar',
+        'map',
+        'exe', 'dll', 'so', 'dylib', 'bin'
+      ];
+      const ext = fileName.split('.').pop() || '';
+      if (ignoredExtensions.includes(ext.toLowerCase())) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   // 1. Classification Helper (predicts architectural layer from path name)
   const classifyLayer = (path: string): LayerType => {
     const lower = path.toLowerCase();
@@ -77,7 +120,17 @@ export default function App() {
 
     // Separate directories and files
     const directories = flatItems.filter(i => i.type === 'directory');
-    const files = flatItems.filter(i => i.type === 'file');
+    let files = flatItems.filter(i => i.type === 'file');
+
+    // Safeguard: If too many nodes, prune deeply nested files to prevent performance lag
+    const maxItems = 180;
+    if (directories.length + files.length > maxItems) {
+      const total = directories.length + files.length;
+      files = files.filter(f => f.path.split('/').length <= 3);
+      setImportWarning(
+        `This project is very large (${total} items). To keep the canvas fluid and readable, we have mapped all folders but restricted files to the top 2 sub-directory levels.`
+      );
+    }
 
     // Layout directories at the top (grouped by directory depth level)
     const dirsByDepth: Record<number, any[]> = {};
@@ -177,13 +230,11 @@ export default function App() {
         throw new Error('No files found in this repository.');
       }
 
-      // Filter out node_modules, .git, and build outputs
+      setImportWarning(null);
+      // Filter out node_modules, .git, and build outputs using shouldIncludePath
       const filteredItems = resData.tree
         .filter((item: any) => 
-          !item.path.includes('node_modules/') && 
-          !item.path.startsWith('.git/') &&
-          !item.path.includes('dist/') &&
-          !item.path.startsWith('package-lock.json')
+          shouldIncludePath(item.path, item.type === 'tree' ? 'directory' : 'file')
         )
         .map((item: any) => ({
           name: item.path.split('/').pop() || '',
@@ -217,13 +268,14 @@ export default function App() {
     try {
       const dirHandle = await (window as any).showDirectoryPicker();
       const flatItems: any[] = [];
+      setImportWarning(null);
 
       const readEntry = async (handle: any, parentPath = '') => {
         for await (const entry of handle.values()) {
           const path = parentPath ? `${parentPath}/${entry.name}` : entry.name;
           
-          // Filter folders
-          if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'package-lock.json') {
+          // Filter files and folders using shouldIncludePath
+          if (!shouldIncludePath(path, entry.kind === 'directory' ? 'directory' : 'file')) {
             continue;
           }
 
@@ -425,6 +477,47 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {importWarning && (
+        <div className="import-warning-banner glass-plate" style={{
+          position: 'absolute',
+          top: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(245, 162, 27, 0.15)',
+          border: '1px solid rgba(245, 162, 27, 0.4)',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          backdropFilter: 'blur(10px)',
+          fontSize: '0.82rem',
+          color: '#ffd073',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          width: 'max-content',
+          maxWidth: '90%',
+          justifyContent: 'space-between'
+        }}>
+          <span>⚠️ {importWarning}</span>
+          <button 
+            onClick={() => setImportWarning(null)} 
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              lineHeight: '1',
+              padding: '0 0 0 10px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Floating Toolbar Controls */}
       <Toolbar 
         onImportGitHub={handleImportGitHub}
