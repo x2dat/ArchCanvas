@@ -38,7 +38,7 @@ interface ToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
-  onExitProject: () => void;
+  onExitProject?: () => void;
   scale: number;
   isLoading: boolean;
   isLeftOpen: boolean;
@@ -80,17 +80,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     <header className="workspace-header glass-plate">
       {/* Left side: Back + Project Info */}
       <div className="header-left-group">
-        <button 
-          type="button" 
-          className="header-back-btn" 
-          onClick={onExitProject}
-          title="Save and exit to Dashboard"
-        >
-          <Home size={14} />
-          <span>Dashboard</span>
-        </button>
-        
-        <div className="header-divider"></div>
+        {onExitProject && (
+          <>
+            <button 
+              type="button" 
+              className="header-back-btn" 
+              onClick={onExitProject}
+              title="Save and exit to Dashboard"
+            >
+              <Home size={14} />
+              <span>Dashboard</span>
+            </button>
+            <div className="header-divider"></div>
+          </>
+        )}
         
         <div className="header-project-meta">
           <h2 className="header-project-name" title={projectName}>

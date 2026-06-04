@@ -3,10 +3,6 @@ import { Toolbar } from './components/Toolbar';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
 import { DetailsPanel } from './components/DetailsPanel';
 import { FileExplorer } from './components/FileExplorer';
-import { AuthScreen } from './components/AuthScreen';
-import { Dashboard } from './components/Dashboard';
-import { storageService } from './services/storage';
-import type { User, Project } from './services/storage';
 import type { CodeNode, NodeConnection, CanvasState, LayerType } from './types';
 import './App.css';
 
@@ -17,9 +13,6 @@ const DEFAULT_CANVAS_STATE: CanvasState = {
 };
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [nodes, setNodes] = useState<CodeNode[]>([]);
   const [connections, setConnections] = useState<NodeConnection[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -60,54 +53,27 @@ export default function App() {
     }));
   };
 
-  // Load user session on mount
+  // Load standalone project map data on mount
   useEffect(() => {
-    const loadSession = async () => {
-      const sessionUser = await storageService.getCurrentUser();
-      if (sessionUser) {
-        setCurrentUser(sessionUser);
-      }
-    };
-    loadSession();
-  }, []);
-
-  // Load project map data whenever activeProjectId changes
-  useEffect(() => {
-    if (!activeProjectId) {
-      setNodes([]);
-      setConnections([]);
-      setCanvasState(DEFAULT_CANVAS_STATE);
-      setSelectedNodeId(null);
-      setActiveProject(null);
-      return;
+    try {
+      const storedNodes = localStorage.getItem('archcanvas_blank_nodes');
+      const storedConns = localStorage.getItem('archcanvas_blank_connections');
+      const storedCanvas = localStorage.getItem('archcanvas_blank_canvas_state');
+      if (storedNodes) setNodes(JSON.parse(storedNodes));
+      if (storedConns) setConnections(JSON.parse(storedConns));
+      if (storedCanvas) setCanvasState(JSON.parse(storedCanvas));
+    } catch (e) {
+      console.error('Failed to load local map state:', e);
     }
-    const loadProject = async () => {
-      const data = await storageService.getProjectData(activeProjectId);
-      if (data) {
-        setNodes(data.nodes);
-        setConnections(data.connections);
-        setCanvasState(data.canvasState);
-      }
-
-      // Load project details
-      if (currentUser) {
-        try {
-          const list = await storageService.getProjects(currentUser.id);
-          const p = list.find(proj => proj.id === activeProjectId);
-          if (p) setActiveProject(p);
-        } catch (err) {
-          console.error("Failed to load project details", err);
-        }
-      }
-    };
-    loadProject();
-  }, [activeProjectId, currentUser]);
+  }, []);
 
   const handleUpdateCanvasState = (updater: CanvasState | ((prev: CanvasState) => CanvasState)) => {
     setCanvasState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (activeProjectId) {
-        storageService.saveProjectData(activeProjectId, nodes, connections, next);
+      try {
+        localStorage.setItem('archcanvas_blank_canvas_state', JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save canvas state:', e);
       }
       return next;
     });
@@ -117,11 +83,15 @@ export default function App() {
     const cleanConns = newConns.filter(c => c.fromNodeId !== c.toNodeId);
     setNodes(newNodes);
     setConnections(cleanConns);
-    if (newCanvasState) {
-      setCanvasState(newCanvasState);
-    }
-    if (activeProjectId) {
-      storageService.saveProjectData(activeProjectId, newNodes, cleanConns, newCanvasState || canvasState);
+    try {
+      localStorage.setItem('archcanvas_blank_nodes', JSON.stringify(newNodes));
+      localStorage.setItem('archcanvas_blank_connections', JSON.stringify(cleanConns));
+      if (newCanvasState) {
+        setCanvasState(newCanvasState);
+        localStorage.setItem('archcanvas_blank_canvas_state', JSON.stringify(newCanvasState));
+      }
+    } catch (e) {
+      console.error('Failed to save project data:', e);
     }
   };
 
@@ -733,49 +703,14 @@ export default function App() {
     }
 
     md += `\n---\n\n<p align="center">\n  <a href="https://github.com/x2dat/ArchCanvas">\n    <img src="https://img.shields.io/badge/Generated_with-ArchCanvas-8b5cf6?style=for-the-badge" alt="Generated with ArchCanvas" />\n  </a>\n</p>\n`;
-
     return md;
   };
-
-  const handleLogout = () => {
-    storageService.logoutUser();
-    setCurrentUser(null);
-    setActiveProjectId(null);
-  };
-
-  const handleUpdateProfile = async (updates: { name: string; password?: string }) => {
-    if (!currentUser) return;
-    const updatedUser = await storageService.updateProfile(currentUser.id, updates);
-    setCurrentUser(updatedUser);
-  };
-
-  const handleExitProject = () => {
-    if (activeProjectId) {
-      storageService.saveProjectData(activeProjectId, nodes, connections, canvasState);
-    }
-    setActiveProjectId(null);
-  };
-
-  if (!currentUser) {
-    return <AuthScreen onAuthSuccess={(user) => setCurrentUser(user)} />;
-  }
-
-  if (!activeProjectId) {
-    return (
-      <Dashboard 
-        currentUser={currentUser} 
-        onSelectProject={(id) => setActiveProjectId(id)} 
-        onLogout={handleLogout}
-        onUpdateProfile={handleUpdateProfile}
-      />
-    );
-  }
 
   return (
     <div className="workspace-layout">
       <Toolbar 
-        projectName={activeProject?.name || 'Loading Map...'}
-        projectDescription={activeProject?.description || ''}
+        projectName="ArchCanvas Workspace"
+        projectDescription="Offline Codebase Architect"
         onImportGitHub={handleImportGitHub}
         onImportLocalDirectory={handleImportLocalDirectory}
         onAutoLayout={handleAutoLayout}
@@ -783,7 +718,6 @@ export default function App() {
         onZoomIn={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.min(prev.scale + 0.1, 3.0) }))}
         onZoomOut={() => handleUpdateCanvasState(prev => ({ ...prev, scale: Math.max(prev.scale - 0.1, 0.15) }))}
         onZoomReset={() => handleUpdateCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
-        onExitProject={handleExitProject}
         scale={canvasState.scale}
         isLoading={isLoading}
         isLeftOpen={isLeftSidebarOpen}
@@ -922,9 +856,9 @@ export default function App() {
         </div>
 
         <div className="status-right-sync">
-          <div className="sync-badge synced">
-            <span className="pulse-dot"></span>
-            <span>CLOUD SYNCED</span>
+          <div className="sync-badge synced" style={{ color: 'var(--accent-purple)' }}>
+            <span className="pulse-dot" style={{ backgroundColor: 'var(--accent-purple)', boxShadow: '0 0 6px var(--accent-purple)' }}></span>
+            <span>LOCAL AUTO-SAVE</span>
           </div>
         </div>
       </footer>
