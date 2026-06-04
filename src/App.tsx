@@ -714,15 +714,6 @@ export default function App() {
         onZoomReset={() => setCanvasState(prev => ({ ...prev, scale: 1.0, panX: 100, panY: 100 }))}
         scale={canvasState.scale}
         isLoading={isLoading}
-        nodes={nodes}
-        connections={connections}
-        onImportJson={(newNodes, newConns) => {
-          saveState(newNodes, newConns);
-          setCanvasState(DEFAULT_CANVAS_STATE);
-          setSelectedNodeId(null);
-          setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
-        }}
-        onExportMarkdown={handleExportMarkdown}
       />
 
       {/* Main Drag-Pan Canvas Port */}
@@ -759,6 +750,13 @@ export default function App() {
           onDeleteConnection={handleDeleteConnection}
           onExportMarkdown={handleExportMarkdown}
           onClose={() => setIsSidebarOpen(false)}
+          isLoading={isLoading}
+          onImportJson={(newNodes, newConns) => {
+            saveState(newNodes, newConns);
+            setCanvasState(DEFAULT_CANVAS_STATE);
+            setSelectedNodeId(null);
+            setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
+          }}
         />
       </div>
     </div>
