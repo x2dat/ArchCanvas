@@ -70,7 +70,11 @@ Ensure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 1. Clone or navigate to the project directory:
    ```bash
+<<<<<<< HEAD
    cd architecture-canvas
+=======
+   cd ArchCanvas
+>>>>>>> 9a5526252a704746b0865ff219d50728a7c73b22
    ```
 
 2. Install dependencies:
