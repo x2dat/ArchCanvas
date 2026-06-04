@@ -5,10 +5,21 @@ import { DetailsPanel } from './components/DetailsPanel';
 import { FileExplorer } from './components/FileExplorer';
 import { AuthScreen } from './components/AuthScreen';
 import { Dashboard } from './components/Dashboard';
+import { CustomModal } from './components/CustomModal';
 import { storageService } from './services/storage';
 import type { User, Project } from './services/storage';
 import type { CodeNode, NodeConnection, CanvasState, LayerType } from './types';
 import './App.css';
+
+interface CustomModalState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  type: 'alert' | 'confirm' | 'danger';
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+}
 
 const DEFAULT_CANVAS_STATE: CanvasState = {
   panX: 50,
@@ -29,6 +40,39 @@ export default function App() {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [importWarning, setImportWarning] = useState<string | null>(null);
   const [historyBackup, setHistoryBackup] = useState<{ nodes: CodeNode[], connections: NodeConnection[] } | null>(null);
+
+  const [modalState, setModalState] = useState<CustomModalState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'alert',
+    onConfirm: () => {}
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setModalState({
+      isOpen: true,
+      title,
+      message,
+      type: 'alert',
+      onConfirm: () => setModalState(prev => ({ ...prev, isOpen: false }))
+    });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, isDestructive = false, confirmText = 'Confirm', cancelText = 'Cancel') => {
+    setModalState({
+      isOpen: true,
+      title,
+      message,
+      type: isDestructive ? 'danger' : 'confirm',
+      confirmText,
+      cancelText,
+      onConfirm: () => {
+        onConfirm();
+        setModalState(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
@@ -103,13 +147,22 @@ export default function App() {
     loadProject();
   }, [activeProjectId, currentUser]);
 
+  // Debounce saving canvasState to Database to prevent performance lag during mouse panning/zooming
+  useEffect(() => {
+    if (!activeProjectId) return;
+    const timer = setTimeout(() => {
+      try {
+        storageService.saveProjectData(activeProjectId, nodes, connections, canvasState);
+      } catch (e) {
+        console.error('Failed to sync canvas state to DB:', e);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [canvasState, activeProjectId]);
+
   const handleUpdateCanvasState = (updater: CanvasState | ((prev: CanvasState) => CanvasState)) => {
     setCanvasState(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (activeProjectId) {
-        storageService.saveProjectData(activeProjectId, nodes, connections, next);
-      }
-      return next;
+      return typeof updater === 'function' ? updater(prev) : updater;
     });
   };
 
@@ -283,7 +336,7 @@ export default function App() {
       // Parse owner and repo from URL
       const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (!match) {
-        alert('Invalid GitHub repository URL. Must be in the format: https://github.com/owner/repo');
+        showAlert('Import Error', 'Invalid GitHub repository URL. Must be in the format: https://github.com/owner/repo');
         setIsLoading(false);
         return;
       }
@@ -324,7 +377,7 @@ export default function App() {
       setCanvasState(DEFAULT_CANVAS_STATE);
 
     } catch (e: any) {
-      alert(`Import failed: ${e.message}`);
+      showAlert('Import Failed', `GitHub import failed: ${e.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -333,7 +386,7 @@ export default function App() {
   // 4. Local Folder Picker Parser Engine (File System Access API)
   const handleImportLocalDirectory = async () => {
     if (!('showDirectoryPicker' in window)) {
-      alert('Local Directory Picker is not supported in this browser. Please use Chrome, Edge, or try the GitHub Import!');
+      showAlert('Unsupported Browser', 'Local Directory Picker is not supported in this browser. Please use Chrome, Edge, or try the GitHub Import!');
       return;
     }
 
@@ -509,11 +562,18 @@ export default function App() {
 
   // 10. Clear Workspace Canvas
   const handleClearCanvas = () => {
-    if (window.confirm('Wipe this codebase mapping clean? All custom annotations and links will be lost.')) {
-      saveState([], []);
-      setSelectedNodeId(null);
-      setCanvasState(DEFAULT_CANVAS_STATE);
-    }
+    showConfirm(
+      'Wipe Canvas',
+      'Wipe this codebase mapping clean? All custom annotations and links will be lost.',
+      () => {
+        saveState([], []);
+        setSelectedNodeId(null);
+        setCanvasState(DEFAULT_CANVAS_STATE);
+      },
+      true, // isDestructive
+      'Clear Canvas',
+      'Cancel'
+    );
   };
 
   // 10.5 Path Resolver and Dependency Linker Methods
@@ -655,7 +715,7 @@ export default function App() {
     });
 
     if (newConnections.length === 0) {
-      alert('Dependency scanner complete! No relative import paths or sibling resources found to auto-link.');
+      showAlert('Scan Complete', 'Dependency scanner complete! No relative import paths or sibling resources found to auto-link.');
       return;
     }
 
@@ -878,25 +938,45 @@ export default function App() {
               setImportWarning(`Successfully restored workspace canvas with ${newNodes.length} nodes!`);
             }}
             onClearAllConnections={() => {
-              if (window.confirm('Delete all connection lines? This cannot be undone.')) {
-                saveState(nodes, []);
-              }
+              showConfirm(
+                'Delete Links',
+                'Delete all connection lines? This cannot be undone.',
+                () => saveState(nodes, []),
+                true,
+                'Delete All',
+                'Cancel'
+              );
             }}
             onClearAllLayers={() => {
-              if (window.confirm('Reset all nodes to general layer type?')) {
-                const updated = nodes.map(n => ({ ...n, layer: 'none' as const }));
-                saveState(updated, connections);
-              }
+              showConfirm(
+                'Reset Layers',
+                'Reset all nodes to general layer type?',
+                () => {
+                  const updated = nodes.map(n => ({ ...n, layer: 'none' as const }));
+                  saveState(updated, connections);
+                },
+                false,
+                'Reset',
+                'Cancel'
+              );
             }}
             onAutoClassifyAllLayers={() => {
-              if (window.confirm('Scan file paths and re-classify architectural layers? This will override custom layers.')) {
-                const updated = nodes.map(n => ({ ...n, layer: classifyLayer(n.path) }));
-                saveState(updated, connections);
-              }
+              showConfirm(
+                'Auto-Classify Layers',
+                'Scan file paths and re-classify architectural layers? This will override custom layers.',
+                () => {
+                  const updated = nodes.map(n => ({ ...n, layer: classifyLayer(n.path) }));
+                  saveState(updated, connections);
+                },
+                false,
+                'Classify',
+                'Cancel'
+              );
             }}
             onClearCanvas={handleClearCanvas}
             onUndo={handleUndoAutoLink}
             canUndo={!!historyBackup}
+            showAlert={showAlert}
           />
         </div>
       </div>
@@ -928,6 +1008,17 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <CustomModal 
+        isOpen={modalState.isOpen}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        onConfirm={modalState.onConfirm}
+        onCancel={() => setModalState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
