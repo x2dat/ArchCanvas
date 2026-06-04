@@ -1708,7 +1708,7 @@
 /* --- BACK TO DASHBOARD FLOATING BUTTON --- */
 .back-dashboard-btn {
   position: absolute;
-  top: 16px;
+  top: 76px;
   left: 16px;
   z-index: 20;
   display: flex;
