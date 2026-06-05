@@ -1,8 +1,14 @@
 {
-  "name": "architecture-canvas",
-  "private": true,
+  "name": "@x2dat/architecture-canvas",
   "version": "1.0.0",
   "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x2dat/ArchCanvas.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
